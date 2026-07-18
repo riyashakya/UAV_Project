@@ -91,8 +91,8 @@ degrades gracefully, reporting every source as *absent* instead of crashing. ✔
       instance-count table and paste it into `docs/datasets.md`.
 - [ ] On first real mask: verify the palette index order matches `taxonomy.yaml` `native:`
       lists (one-line fix if not).
-- [ ] Repo is **not yet a git repo** — `git init` + first commit pending your go-ahead
-      (CLAUDE.md checklist wants "Repo + CLAUDE.md + ADRs committed").
+- [x] Git initialised; first commit `7e668ed` on `main` (53 files; data/outputs/venv
+      ignored). No remote yet — push to a private GitHub repo when off-machine backup wanted.
 
 ### Next (Week 2 → Phase 2)
 
