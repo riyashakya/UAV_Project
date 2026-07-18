@@ -119,9 +119,16 @@ Each dataset ships several variants. You only need the one that matches our two 
 | Dataset | Download this variant | Skip | Put in |
 |---|---|---|---|
 | VisDrone | **VisDrone2019-DET** (object detection), train + val | VID / MOT (video, tracking) | `data/raw/visdrone/` — or let Ultralytics auto-download it |
-| SARD | main **SARD** image set with VOC-XML labels | the `Corr` weather variant (optional) | `data/raw/sard/` |
+| SARD | **ORIGINAL** full-resolution **colour** images + box labels | pre-tiled (`640`, `tiles_3x3`, `3-d_tiles`) and grayscale variants | `data/raw/sard/` |
 | RescueNet | the **semantic-segmentation** set with label masks (train/val/test) | — | `data/raw/rescuenet/` |
-| FloodNet | **FloodNet-Supervised v1.0** (segmentation, "Track 2") | Track 1 (VQA / classification) | `data/raw/floodnet/` |
+| FloodNet | **FloodNet-Supervised v1.0** (segmentation, has label masks) | the semi-supervised / VQA "Track 1" set | `data/raw/floodnet/` |
+
+**Where to actually download (verified 2026-07-18):**
+
+- **VisDrone-DET** — auto-downloads via Ultralytics, or [official site](http://aiskyeye.com/).
+- **SARD** — [IEEE DataPort](https://ieee-dataport.org/documents/search-and-rescue-image-dataset-person-detection-sard) (also mirrored on Roboflow/Kaggle). If exporting from Roboflow, choose **ORIGINAL** size, **colour**, and **Pascal VOC XML** format — that keeps the pose sub-labels our loader stores as metadata.
+- **RescueNet** — the GitHub repo holds **only code**; the actual images + masks are on **figshare**: [Springer Nature figshare collection 6647354](https://springernature.figshare.com/collections/RescueNet_A_High_Resolution_UAV_Semantic_Segmentation_Benchmark_Dataset_for_Natural_Disaster_Damage_Assessment/6647354).
+- **FloodNet** — [github.com/BinaLab/FloodNet-Supervised_v1.0](https://github.com/BinaLab/FloodNet-Supervised_v1.0) (the README links a Dropbox download). This is the segmentation set with masks — **not** the ~12 GB datasetninja "Track 1" set, which is the VQA/semi-supervised version we don't use.
 
 Folder layout the loaders expect (`src/perception/datasets/loaders.py`):
 
