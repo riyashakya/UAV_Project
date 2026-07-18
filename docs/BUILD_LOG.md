@@ -60,7 +60,9 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
       building_damaged 6,599 · road_blocked 2,643 · water 6,597; 6,387 images (2.9 GB).
       Added a `--max-image-side` resize option so the 3000×4000 originals ship small for Colab
       (labels are normalised, so resizing doesn't touch them).
-- [ ] Train **Model A** and **Model B** on Colab (both datasets ready) → record mAP here.
+- [ ] Train + **compare YOLO11 sizes (n/s/m/l)** for Model A and Model B on Colab (fair scale
+      study: only size changes; 50-epoch sweep → retrain the winner at 100). Record the
+      comparison tables here. Notebook + `configs/perception/{model_a,model_b}.yaml` updated.
 - [ ] `road_blocked` is the minority seg class (2,643 vs ~6,600) — watch for class imbalance.
 - [ ] SARD pose sub-labels unavailable in the Roboflow export — note in the limitations chapter.
 
