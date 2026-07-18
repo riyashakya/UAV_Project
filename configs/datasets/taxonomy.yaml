@@ -1,0 +1,79 @@
+# Unified detection taxonomy and per-source class mapping (ADR-002: two models, not one).
+#
+# This file is the single source of truth for how every source dataset's native classes
+# map into the unified taxonomy. Totality is enforced by tests/test_taxonomy.py:
+#   * every native class appears exactly once, under `map` OR `drop` (no silent drops);
+#   * no class is both mapped and dropped;
+#   * every `map` target is a valid unified class for that source's task.
+#
+# Native class lists are in on-disk index order (VisDrone YOLO ids; RescueNet/FloodNet mask
+# palette indices) so loaders can translate index -> name directly. Sources verified against
+# the dataset papers (see docs/datasets.md for citations).
+
+# --- Unified classes -----------------------------------------------------------------------
+unified:
+  detect:            # Model A — YOLO detect
+    - person
+    - vehicle
+  segment:           # Model B — YOLO-seg
+    - building_damaged
+    - road_blocked
+    - water
+
+# --- Per-source mappings -------------------------------------------------------------------
+sources:
+  visdrone:
+    task: detect
+    # Ultralytics VisDrone.yaml order (ignored-regions & others removed during YOLO export).
+    # Zhu et al. 2021, TPAMI.
+    native: [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+    map:
+      pedestrian: person
+      people: person
+      car: vehicle
+      van: vehicle
+      truck: vehicle
+      bus: vehicle
+    drop: [bicycle, tricycle, awning-tricycle, motor]
+
+  sard:
+    task: detect
+    # Sambolek & Ivasic-Kos 2021, IEEE Access. VOC XML; every box is a person, sub-labelled
+    # by pose. Pose is preserved as metadata for stratified eval (Phase 2), not as a class.
+    native: [standing, walking, running, sitting, lying, not-defined]
+    map:
+      standing: person
+      walking: person
+      running: person
+      sitting: person
+      lying: person
+      not-defined: person
+    drop: []
+    keep_metadata: pose      # store the native pose label on each unified detection
+
+  rescuenet:
+    task: segment
+    # Chowdhury et al. 2023, Scientific Data 10. Mask palette indices 0..10.
+    native: [background, water, building-no-damage, building-minor-damage,
+             building-major-damage, building-total-destruction, vehicle,
+             road-clear, road-blocked, tree, pool]
+    map:
+      water: water
+      building-major-damage: building_damaged
+      building-total-destruction: building_damaged
+      road-blocked: road_blocked
+    # RescueNet `vehicle` is a MASK; Model A wants boxes. Emitting vehicle boxes via
+    # mask->bbox is deferred (PROJECT_PLAN 3.4) — dropped here, documented in docs/datasets.md.
+    drop: [background, building-no-damage, building-minor-damage, vehicle,
+           road-clear, tree, pool]
+
+  floodnet:
+    task: segment
+    # Rahnemoonfar et al. 2021, IEEE Access. Mask palette indices 0..9.
+    native: [background, building-flooded, building-non-flooded, road-flooded,
+             road-non-flooded, water, tree, vehicle, pool, grass]
+    map:
+      building-flooded: building_damaged
+      road-flooded: road_blocked
+      water: water
+    drop: [background, building-non-flooded, road-non-flooded, tree, vehicle, pool, grass]

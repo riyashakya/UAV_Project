@@ -1,0 +1,35 @@
+# --- Data & model weights: never commit (CLAUDE.md § Data) ---------------------
+# data/ and outputs/ are gitignored; RescueNet is CC BY-NC-ND — do not redistribute
+# derived label files.
+data/
+outputs/
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# --- Python --------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# uv: the lockfile IS committed for reproducible pins; the venv is not.
+# (.venv/ already ignored above)
+
+# --- Tooling caches ------------------------------------------------------------
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- OS / editors --------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+*.swp

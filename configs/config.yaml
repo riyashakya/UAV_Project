@@ -1,0 +1,10 @@
+# Root Hydra config. Experiment configs compose the groups below.
+# Run `python -m src.<entrypoint> <group>=<option> key=value` to override.
+
+defaults:
+  - datasets: default
+  - _self_
+
+# Global default seed. Every stochastic entry point MUST set its own seed explicitly and
+# thread an np.random.Generator through — never rely on this implicitly (CLAUDE.md).
+seed: 0

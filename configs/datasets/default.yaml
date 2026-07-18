@@ -1,0 +1,26 @@
+# Dataset roots and Phase-1 build settings.
+# Paths are relative to the repo root. The datasets themselves are gitignored and obtained
+# separately (see docs/datasets.md); nothing here is fetched at run time.
+
+# Where each *raw* source dataset lives on disk once downloaded.
+roots:
+  visdrone: data/raw/visdrone      # Ultralytics VisDrone.yaml auto-download target
+  sard: data/raw/sard              # IEEE DataPort — VOC XML
+  rescuenet: data/raw/rescuenet    # BinaLab — pixel masks (CC BY-NC-ND)
+  floodnet: data/raw/floodnet      # BinaLab — pixel masks
+
+# Where the two unified datasets are written (ADR-002: detect set + seg set).
+output:
+  detect_dir: data/unified/detect  # YOLO detect labels: person, vehicle
+  seg_dir: data/unified/seg        # YOLO-seg polygons: building_damaged, road_blocked, water
+
+# Mask -> polygon export controls (RescueNet / FloodNet seg conversion).
+build:
+  # Douglas-Peucker simplify tolerance in pixels. At 3000x4000, 1.0 px keeps polygons
+  # faithful while dropping single-pixel contour jitter.
+  polygon_simplify_px: 1.0
+  # Discard polygons with fewer than this many ring coordinates after simplification.
+  # 4 == a closed triangle (>=3 distinct vertices); area filtering below removes speckle.
+  min_polygon_points: 4
+  # Discard mask regions smaller than this many pixels (drops speckle at class boundaries).
+  min_region_area_px: 32
