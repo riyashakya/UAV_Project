@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from omegaconf import OmegaConf
+from PIL import Image
 
 from .loaders import build_loader
 from .model import UnifiedImage
@@ -124,10 +125,19 @@ class DatasetWriter:
     """
 
     def __init__(
-        self, tax: UnifiedTaxonomy, detect_dir: Path, seg_dir: Path, *, copy_images: bool = False
+        self,
+        tax: UnifiedTaxonomy,
+        detect_dir: Path,
+        seg_dir: Path,
+        *,
+        copy_images: bool = False,
+        max_image_side: int | None = None,
     ):
         self.tax = tax
         self.copy_images = copy_images
+        # Downscale copied images so the long side is <= this many px. YOLO-seg/detect labels
+        # are normalised, so resizing does not touch them — it just shrinks the upload.
+        self.max_image_side = max_image_side
         self.dirs = {"detect": Path(detect_dir), "segment": Path(seg_dir)}
         self.seen_splits: dict[str, set[str]] = {"detect": set(), "segment": set()}
 
@@ -158,10 +168,20 @@ class DatasetWriter:
         if src_img.exists() and src_img.suffix.lower() in (".jpg", ".jpeg", ".png"):
             dst = base / "images" / split / f"{stem}{src_img.suffix}"
             if not dst.exists():
-                if self.copy_images:
-                    shutil.copy2(src_img, dst)
-                else:
+                if not self.copy_images:
                     os.symlink(src_img.resolve(), dst)
+                elif self.max_image_side and max(image.width, image.height) > self.max_image_side:
+                    self._copy_resized(src_img, dst)
+                else:
+                    shutil.copy2(src_img, dst)
+
+    def _copy_resized(self, src: Path, dst: Path) -> None:
+        """Copy an image downscaled so its long side == ``max_image_side`` (labels unaffected)."""
+        with Image.open(src) as im:
+            w, h = im.size
+            scale = self.max_image_side / max(w, h)
+            im = im.convert("RGB").resize((round(w * scale), round(h * scale)), Image.LANCZOS)
+            im.save(dst, quality=90)
 
     def write_data_yaml(self) -> None:
         for task, base in self.dirs.items():
@@ -195,6 +215,12 @@ def run(argv: list[str] | None = None) -> BuildReport:
         action="store_true",
         help="copy images instead of symlinking (needed before zipping for Colab upload)",
     )
+    parser.add_argument(
+        "--max-image-side",
+        type=int,
+        default=None,
+        help="with --copy-images, downscale each image so its long side <= this many px",
+    )
     args = parser.parse_args(argv)
 
     tax = load_taxonomy(args.taxonomy)
@@ -208,6 +234,7 @@ def run(argv: list[str] | None = None) -> BuildReport:
             _resolve(out["detect_dir"]),
             _resolve(out["seg_dir"]),
             copy_images=args.copy_images,
+            max_image_side=args.max_image_side,
         )
 
     report = collect(tax, cfg, sources=args.sources, writer=writer)

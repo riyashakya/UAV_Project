@@ -151,8 +151,17 @@ From the actual downloads via `make build-datasets ARGS=--dry-run`:
 | person | 120,365 | 6,532 | **126,897** |
 | vehicle | 205,663 | 0 | **205,663** |
 
-**Segment set (Model B)** — RescueNet ready (train + val, index masks); FloodNet pending
-(see below). Counts will be filled in once the seg set is built.
+**Segment set (Model B)** — 6,387 images (train 5,040 / val 899 / test 448); instances are
+polygons (connected mask regions), images downscaled to 1280 px long side:
+
+| class | RescueNet | FloodNet | total |
+|---|--:|--:|--:|
+| building_damaged | 3,389 | 3,210 | **6,599** |
+| road_blocked | 785 | 1,858 | **2,643** |
+| water | 1,756 | 4,841 | **6,597** |
+
+`road_blocked` is markedly rarer than the other two — worth noting as class imbalance in the
+evaluation chapter.
 
 ### On-disk formats actually encountered (loaders handle these)
 

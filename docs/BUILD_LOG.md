@@ -54,10 +54,14 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
 
 ### Follow-ups
 
-- [ ] **Re-download FloodNet** `FloodNet-Supervised_v1.0` (index masks + original images), not
-      the ColorMasks. Then build the seg set and train Model B.
-- [ ] Train **Model A** on Colab (data is ready) → record mAP here.
-- [ ] Build the seg set from RescueNet (works now); add FloodNet once re-downloaded.
+- [x] **Re-downloaded FloodNet** `FloodNet-Supervised_v1.0` (train 1445 / val 450 / test 448,
+      index masks + originals, verified) — the loader handled it as-is.
+- [x] **Segment set built** (`--sources rescuenet floodnet --copy-images --max-image-side 1280`):
+      building_damaged 6,599 · road_blocked 2,643 · water 6,597; 6,387 images (2.9 GB).
+      Added a `--max-image-side` resize option so the 3000×4000 originals ship small for Colab
+      (labels are normalised, so resizing doesn't touch them).
+- [ ] Train **Model A** and **Model B** on Colab (both datasets ready) → record mAP here.
+- [ ] `road_blocked` is the minority seg class (2,643 vs ~6,600) — watch for class imbalance.
 - [ ] SARD pose sub-labels unavailable in the Roboflow export — note in the limitations chapter.
 
 ---
