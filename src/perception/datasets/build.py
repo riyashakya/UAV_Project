@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,7 @@ class BuildReport:
     )
     available: dict[str, bool] = field(default_factory=dict)
     n_images: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    splits: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
     def total(self, task: str, unified_class: str) -> int:
         return sum(self.counts[task][unified_class].values())
@@ -71,6 +73,7 @@ def collect(
         task = mapping.task
         for image in loader.iter_images():
             report.n_images[name] += 1
+            report.splits[image.split] += 1
             for det in image.detections:
                 report.counts[task][det.cls][name] += 1
             for seg in image.segments:
@@ -105,6 +108,7 @@ def render_table(report: BuildReport, tax: UnifiedTaxonomy) -> str:
 
     lines.append("")
     lines.append(f"images seen : {dict(report.n_images) or '(none)'}")
+    lines.append(f"by split    : {dict(report.splits) or '(none)'}")
     lines.append(f"present     : {present or '(none — no datasets on disk yet)'}")
     if absent:
         lines.append(f"absent      : {absent}  (paths from configs/datasets/default.yaml)")
@@ -112,19 +116,30 @@ def render_table(report: BuildReport, tax: UnifiedTaxonomy) -> str:
 
 
 class DatasetWriter:
-    """Write unified images to YOLO / YOLO-seg on disk (labels + image symlinks + data.yaml)."""
+    """Write unified images to Ultralytics YOLO / YOLO-seg layout on disk.
 
-    def __init__(self, tax: UnifiedTaxonomy, detect_dir: Path, seg_dir: Path):
+    Produces ``<base>/{images,labels}/<split>/`` so ``train`` and ``val`` are real, separate
+    splits. Images are symlinked by default (fast, local) or copied (``copy_images=True``,
+    needed when the dataset will be zipped and uploaded to Colab, since symlinks don't survive).
+    """
+
+    def __init__(
+        self, tax: UnifiedTaxonomy, detect_dir: Path, seg_dir: Path, *, copy_images: bool = False
+    ):
         self.tax = tax
+        self.copy_images = copy_images
         self.dirs = {"detect": Path(detect_dir), "segment": Path(seg_dir)}
-        for task, base in self.dirs.items():
-            (base / "images").mkdir(parents=True, exist_ok=True)
-            (base / "labels").mkdir(parents=True, exist_ok=True)
+        self.seen_splits: dict[str, set[str]] = {"detect": set(), "segment": set()}
 
     def write(self, image: UnifiedImage, task: str) -> None:
         base = self.dirs[task]
+        split = image.split
+        self.seen_splits[task].add(split)
+        (base / "images" / split).mkdir(parents=True, exist_ok=True)
+        (base / "labels" / split).mkdir(parents=True, exist_ok=True)
+
         stem = f"{image.source}_{Path(image.image_path).stem}"
-        label_path = base / "labels" / f"{stem}.txt"
+        label_path = base / "labels" / split / f"{stem}.txt"
 
         rows: list[str] = []
         if task == "detect":
@@ -141,23 +156,31 @@ class DatasetWriter:
 
         src_img = Path(image.image_path)
         if src_img.exists() and src_img.suffix.lower() in (".jpg", ".jpeg", ".png"):
-            link = base / "images" / f"{stem}{src_img.suffix}"
-            if not link.exists():
-                os.symlink(src_img.resolve(), link)
+            dst = base / "images" / split / f"{stem}{src_img.suffix}"
+            if not dst.exists():
+                if self.copy_images:
+                    shutil.copy2(src_img, dst)
+                else:
+                    os.symlink(src_img.resolve(), dst)
 
     def write_data_yaml(self) -> None:
         for task, base in self.dirs.items():
+            splits = self.seen_splits[task]
+            if not splits:
+                continue  # nothing was written for this set (e.g. --sources excluded it)
+            base.mkdir(parents=True, exist_ok=True)
             names = list(self.tax.classes(task))
-            cfg = OmegaConf.create(
-                {
-                    "path": str(base.resolve()),
-                    "train": "images",
-                    "val": "images",
-                    "nc": len(names),
-                    "names": names,
-                }
-            )
-            OmegaConf.save(cfg, base / "data.yaml")
+            cfg = {
+                "path": str(base.resolve()),
+                "train": "images/train",
+                # fall back to the train split for val if a source had no val split
+                "val": "images/val" if "val" in splits else "images/train",
+                "nc": len(names),
+                "names": names,
+            }
+            if "test" in splits:
+                cfg["test"] = "images/test"
+            OmegaConf.save(OmegaConf.create(cfg), base / "data.yaml")
 
 
 def run(argv: list[str] | None = None) -> BuildReport:
@@ -167,6 +190,11 @@ def run(argv: list[str] | None = None) -> BuildReport:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="datasets config YAML")
     parser.add_argument("--taxonomy", default=str(DEFAULT_TAXONOMY_PATH), help="taxonomy YAML")
     parser.add_argument("--sources", nargs="*", default=None, help="restrict to these sources")
+    parser.add_argument(
+        "--copy-images",
+        action="store_true",
+        help="copy images instead of symlinking (needed before zipping for Colab upload)",
+    )
     args = parser.parse_args(argv)
 
     tax = load_taxonomy(args.taxonomy)
@@ -175,7 +203,12 @@ def run(argv: list[str] | None = None) -> BuildReport:
     writer = None
     if not args.dry_run:
         out = cfg.get("output", {})
-        writer = DatasetWriter(tax, _resolve(out["detect_dir"]), _resolve(out["seg_dir"]))
+        writer = DatasetWriter(
+            tax,
+            _resolve(out["detect_dir"]),
+            _resolve(out["seg_dir"]),
+            copy_images=args.copy_images,
+        )
 
     report = collect(tax, cfg, sources=args.sources, writer=writer)
     if writer is not None:

@@ -52,5 +52,6 @@ class UnifiedImage:
     image_path: Path
     width: int
     height: int
+    split: str = "train"  # "train" | "val" | "test", inferred from the source folder
     detections: list[DetectInstance] = field(default_factory=list)
     segments: list[SegInstance] = field(default_factory=list)

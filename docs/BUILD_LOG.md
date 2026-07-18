@@ -11,6 +11,57 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
 
 ---
 
+## 2026-07-19 — Phase 1 hardening on real data + Phase 2 Colab training setup
+
+**Status:** ✅ detect set built on real downloads · 26 tests green · Colab notebook ready.
+**Trigger:** all four datasets downloaded; ran the "check the dataset before training" step.
+
+### Dataset inspection findings (real downloads differ from the paper-based assumptions)
+
+- **VisDrone** ships the **raw** annotation format (`annotations/*.txt`, comma-separated,
+  absolute pixels, category id in field 6, ids 0–11) — not the pre-converted YOLO format the
+  loader first assumed.
+- **SARD** (Roboflow VOC export) collapses all poses to a single **`human`** class.
+- **RescueNet** masks are proper **index masks** (0–10); originals sit in a sibling
+  `*-org-img/` folder, not next to the masks.
+- **FloodNet** ❌ incomplete: only the RGB **ColorMasks** were downloaded (1024², no original
+  images). Unusable for training — needs re-download of `FloodNet-Supervised_v1.0`.
+
+### Code changes (Phase 1 corrections)
+
+- `taxonomy.yaml`: VisDrone → 12 raw categories (added `ignored-regions`, `others` as drops);
+  SARD → accepts both `human` and the six poses (robust to either download).
+- `loaders.py`: rewrote `VisDroneLoader` for the raw format (reads image size to normalise);
+  mask loaders now find originals in the sibling `*-org-img/` folder and **raise a clear error
+  on an RGB colour mask** (no-silent-drops philosophy). Added split inference (train/val/test)
+  from the source folder.
+- `build.py` / writer: real **`{images,labels}/<split>/`** layout, correct Ultralytics
+  `data.yaml`, and a `--copy-images` flag (symlinks don't survive a Colab zip upload).
+- Updated synthetic fixtures + tests to the real formats and split logic (26 tests).
+
+### Built + verified
+
+- `make build-datasets ARGS="--sources visdrone sard --copy-images"` → `data/unified/detect/`
+  (2.8 GB): **126,897 person + 205,663 vehicle** across train 7,858 / val 944 / test 198.
+- RescueNet mask→polygon measured at ~0.4 s/mask (≈30 min for the full set as a one-time job).
+
+### Phase 2 — Colab training setup (train on GPU, use weights locally)
+
+- `notebooks/train_yolo11_colab.ipynb`: one notebook, trains Model A or Model B; mounts Drive,
+  unzips the dataset, fixes the `data.yaml` path for Colab, trains, validates, saves `best.pt`.
+- `configs/perception/model_a.yaml` + `model_b.yaml`: hyperparameters with provenance
+  (imgsz 1280 for the tiny-object detect set; 1024 for seg).
+
+### Follow-ups
+
+- [ ] **Re-download FloodNet** `FloodNet-Supervised_v1.0` (index masks + original images), not
+      the ColorMasks. Then build the seg set and train Model B.
+- [ ] Train **Model A** on Colab (data is ready) → record mAP here.
+- [ ] Build the seg set from RescueNet (works now); add FloodNet once re-downloaded.
+- [ ] SARD pose sub-labels unavailable in the Roboflow export — note in the limitations chapter.
+
+---
+
 ## 2026-07-17 — Week 1: Phase 0 (Scaffold) + Phase 1 (Dataset unification)
 
 **Status:** ✅ complete · `make setup && make lint && make test` all green · 25 tests passing.

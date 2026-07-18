@@ -1,0 +1,16 @@
+# Model B — segment (building_damaged, road_blocked, water). Unified seg set (RescueNet [+ FloodNet]).
+# The Colab notebook mirrors these values; keep the two in sync.
+
+model: yolo11s-seg.pt        # segmentation variant
+task: segment
+data: data/unified/seg/data.yaml
+
+epochs: 100                  # upper bound; early-stopped by `patience`
+patience: 20
+imgsz: 1024                  # masks are 3000x4000; 1024 balances boundary detail vs VRAM
+batch: -1                    # auto-batch
+optimizer: auto
+seed: 0
+
+# NOTE: build the seg set first with `make build-datasets ARGS="--sources rescuenet floodnet"`.
+# FloodNet needs its index masks + original images (not the RGB ColorMasks) — see docs/datasets.md.

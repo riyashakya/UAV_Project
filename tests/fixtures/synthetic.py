@@ -1,10 +1,14 @@
 """Builders that materialise tiny synthetic datasets on disk.
 
+These mirror the *real* download formats (raw VisDrone annotations, Roboflow-VOC SARD with a
+single ``human`` class, RescueNet/FloodNet index masks with originals in a sibling folder,
+and train/val/test splits), so loader and build tests exercise the real code paths.
+
 Expected unified instance counts (asserted by tests):
 
-    detect  : person = 8 (VisDrone 2 + SARD 6), vehicle = 4 (VisDrone)
-    segment : building_damaged = 3 (RescueNet 2 + FloodNet 1),
-              road_blocked     = 2 (RescueNet 1 + FloodNet 1),
+    detect  : person = 9 (VisDrone 3 + SARD 6), vehicle = 5 (VisDrone)
+    segment : building_damaged = 4 (RescueNet 3 + FloodNet 1),
+              road_blocked     = 3 (RescueNet 2 + FloodNet 1),
               water            = 2 (RescueNet 1 + FloodNet 1)
 """
 
@@ -15,67 +19,67 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-# Expected per-source unified instance counts, for tests to import.
+# Expected per-source unified instance counts (across all splits), for tests to import.
 EXPECTED = {
-    "visdrone": {"person": 2, "vehicle": 4},
+    "visdrone": {"person": 3, "vehicle": 5},
     "sard": {"person": 6},
-    "rescuenet": {"building_damaged": 2, "road_blocked": 1, "water": 1},
+    "rescuenet": {"building_damaged": 3, "road_blocked": 2, "water": 1},
     "floodnet": {"building_damaged": 1, "road_blocked": 1, "water": 1},
 }
 
 
-def _tiny_jpg(path: Path, size: tuple[int, int] = (48, 48)) -> None:
+def _jpg(path: Path, size: tuple[int, int] = (100, 100)) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", size, color=(120, 120, 120)).save(path)
 
 
 def make_visdrone(root: Path) -> None:
-    """VisDrone YOLO export: 2 images. Classes chosen to exercise map + drop."""
-    base = root / "VisDrone2019-DET-train"
-    labels, images = base / "labels", base / "images"
-    labels.mkdir(parents=True, exist_ok=True)
-    # img1: pedestrian, people (-> person x2); car (-> vehicle); bicycle, motor (dropped)
-    (labels / "000001.txt").write_text(
-        "0 0.5 0.5 0.10 0.10\n"
-        "1 0.2 0.2 0.05 0.05\n"
-        "3 0.8 0.8 0.20 0.20\n"
-        "2 0.1 0.1 0.05 0.05\n"
-        "9 0.9 0.9 0.05 0.05\n"
+    """RAW VisDrone-DET: `left,top,w,h,score,category,trunc,occ`, split train/val folders."""
+
+    def subset(name: str, files: dict[str, str]) -> None:
+        base = root / name
+        for stem, ann in files.items():
+            (base / "annotations").mkdir(parents=True, exist_ok=True)
+            (base / "annotations" / f"{stem}.txt").write_text(ann)
+            _jpg(base / "images" / f"{stem}.jpg")
+
+    subset(
+        "VisDrone2019-DET-train",
+        {
+            # cat 1 ped, 2 people -> person; 4 car -> vehicle; 3 bicycle, 0 ignored -> drop
+            "000001": "10,10,20,20,1,1,0,0\n30,30,10,10,1,2,0,0\n50,50,20,20,1,4,0,0\n"
+            "70,70,10,10,1,3,0,0\n80,80,5,5,1,0,0,0\n",
+            # cat 5 van, 6 truck, 9 bus -> vehicle; 10 motor, 11 others -> drop
+            "000002": "10,10,20,20,1,5,0,0\n40,40,10,10,1,6,0,0\n60,60,10,10,1,9,0,0\n"
+            "80,80,5,5,1,10,0,0\n85,85,5,5,1,11,0,0\n",
+        },
     )
-    # img2: van, truck, bus (-> vehicle x3); tricycle, awning-tricycle (dropped)
-    (labels / "000002.txt").write_text(
-        "4 0.5 0.5 0.10 0.10\n"
-        "5 0.3 0.3 0.10 0.10\n"
-        "8 0.6 0.6 0.10 0.10\n"
-        "6 0.2 0.2 0.10 0.10\n"
-        "7 0.1 0.1 0.10 0.10\n"
+    subset(
+        "VisDrone2019-DET-val",
+        {"000003": "10,10,20,20,1,1,0,0\n40,40,10,10,1,4,0,0\n"},  # person1, vehicle1
     )
-    _tiny_jpg(images / "000001.jpg")
-    _tiny_jpg(images / "000002.jpg")
 
 
-def _voc(width: int, height: int, objects: list[str]) -> str:
+def _voc(objects: list[str], size: int = 100) -> str:
     obj_xml = "".join(
-        f"<object><name>{name}</name>"
+        f"<object><name>{n}</name>"
         f"<bndbox><xmin>10</xmin><ymin>10</ymin><xmax>60</xmax><ymax>90</ymax></bndbox>"
         f"</object>"
-        for name in objects
+        for n in objects
     )
     return (
-        f"<annotation><size><width>{width}</width><height>{height}</height>"
+        f"<annotation><size><width>{size}</width><height>{size}</height>"
         f"<depth>3</depth></size>{obj_xml}</annotation>"
     )
 
 
 def make_sard(root: Path) -> None:
-    """SARD Pascal VOC: 6 person boxes across 2 images, spanning all 6 pose labels."""
-    root.mkdir(parents=True, exist_ok=True)
-    (root / "000001.xml").write_text(
-        _voc(1920, 1080, ["Standing", "Walking", "Lying", "Not Defined"])
-    )
-    (root / "000002.xml").write_text(_voc(1920, 1080, ["Sitting", "Running"]))
-    _tiny_jpg(root / "000001.jpg")
-    _tiny_jpg(root / "000002.jpg")
+    """SARD Roboflow-VOC: single `human` class across train/valid/test."""
+    for split, stem, n in (("train", "g1", 3), ("valid", "g2", 2), ("test", "g3", 1)):
+        d = root / "Sard" / split
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{stem}.xml").write_text(_voc(["human"] * n))
+        _jpg(d / f"{stem}.jpg")
 
 
 def _mask(size: int, blocks: dict[int, tuple[slice, slice]]) -> np.ndarray:
@@ -85,50 +89,67 @@ def _mask(size: int, blocks: dict[int, tuple[slice, slice]]) -> np.ndarray:
     return arr
 
 
+def _write_mask_pair(label_dir: Path, org_dir: Path, stem: str, mask: np.ndarray) -> None:
+    label_dir.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(mask, mode="L").save(label_dir / f"{stem}_lab.png")
+    _jpg(org_dir / f"{stem}.jpg")
+
+
 def make_rescuenet(root: Path) -> None:
-    """RescueNet index mask: water(1), building-major(4), building-total(5), road-blocked(8),
-    plus a dropped vehicle(6) region."""
-    d = root / "label-masks"
-    d.mkdir(parents=True, exist_ok=True)
-    mask = _mask(
-        100,
-        {
-            1: (slice(10, 30), slice(10, 30)),  # water
-            4: (slice(10, 30), slice(40, 60)),  # building-major-damage -> building_damaged
-            5: (slice(10, 30), slice(70, 90)),  # building-total-destruction -> building_damaged
-            8: (slice(60, 80), slice(40, 60)),  # road-blocked
-            6: (slice(60, 80), slice(10, 30)),  # vehicle -> dropped
-        },
+    """RescueNet index masks; originals in the sibling `*-org-img` folder; train + val."""
+    train = root / "segmentation-trainset"
+    _write_mask_pair(
+        train / "train-label-img",
+        train / "train-org-img",
+        "0001",
+        _mask(
+            100,
+            {
+                1: (slice(10, 30), slice(10, 30)),  # water
+                4: (slice(10, 30), slice(40, 60)),  # building-major -> building_damaged
+                5: (slice(10, 30), slice(70, 90)),  # building-total -> building_damaged
+                8: (slice(60, 80), slice(40, 60)),  # road-blocked
+                6: (slice(60, 80), slice(10, 30)),  # vehicle -> dropped
+            },
+        ),
     )
-    Image.fromarray(mask, mode="L").save(d / "0001_lab.png")
-    _tiny_jpg(d / "0001.jpg")
+    val = root / "segmentation-validationset"
+    _write_mask_pair(
+        val / "val-label-img",
+        val / "val-org-img",
+        "0002",
+        _mask(
+            100,
+            {
+                4: (slice(10, 30), slice(10, 30)),  # building-major -> building_damaged
+                8: (slice(60, 80), slice(60, 80)),  # road-blocked
+            },
+        ),
+    )
 
 
 def make_floodnet(root: Path) -> None:
-    """FloodNet index mask: building-flooded(1), road-flooded(3), water(5); grass(9) dropped."""
-    d = root / "label-masks"
-    d.mkdir(parents=True, exist_ok=True)
-    mask = _mask(
-        100,
-        {
-            1: (slice(10, 30), slice(10, 30)),  # building-flooded -> building_damaged
-            3: (slice(10, 30), slice(40, 60)),  # road-flooded -> road_blocked
-            5: (slice(60, 80), slice(10, 30)),  # water
-            9: (slice(60, 80), slice(40, 60)),  # grass -> dropped
-        },
+    """FloodNet index masks (the CORRECT format) + originals in a sibling folder; train."""
+    train = root / "train"
+    _write_mask_pair(
+        train / "train-label-img",
+        train / "train-org-img",
+        "0001",
+        _mask(
+            100,
+            {
+                1: (slice(10, 30), slice(10, 30)),  # building-flooded -> building_damaged
+                3: (slice(10, 30), slice(40, 60)),  # road-flooded -> road_blocked
+                5: (slice(60, 80), slice(10, 30)),  # water
+                9: (slice(60, 80), slice(40, 60)),  # grass -> dropped
+            },
+        ),
     )
-    Image.fromarray(mask, mode="L").save(d / "0001_lab.png")
-    _tiny_jpg(d / "0001.jpg")
 
 
 def make_all(base: Path) -> dict[str, Path]:
     """Build all four datasets under ``base`` and return their root paths."""
-    roots = {
-        "visdrone": base / "visdrone",
-        "sard": base / "sard",
-        "rescuenet": base / "rescuenet",
-        "floodnet": base / "floodnet",
-    }
+    roots = {name: base / name for name in ("visdrone", "sard", "rescuenet", "floodnet")}
     make_visdrone(roots["visdrone"])
     make_sard(roots["sard"])
     make_rescuenet(roots["rescuenet"])

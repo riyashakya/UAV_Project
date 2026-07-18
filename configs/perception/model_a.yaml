@@ -1,0 +1,17 @@
+# Model A — detect (person, vehicle). Trained on the unified detect set (VisDrone + SARD).
+# Hyperparameters chosen for a Colab T4 (16 GB). The Colab notebook mirrors these values;
+# keep the two in sync. Every number has a provenance note (CLAUDE.md: no magic numbers).
+
+model: yolo11s.pt            # "s" = best speed/accuracy trade-off on a 16 GB GPU
+task: detect
+data: data/unified/detect/data.yaml
+
+epochs: 100                  # upper bound; early-stopped by `patience`
+patience: 20                 # stop if val mAP hasn't improved for 20 epochs
+imgsz: 1280                  # VisDrone objects are tiny (68% < 32 px); 1280 keeps them resolvable
+batch: -1                    # -1 = Ultralytics auto-batch to available VRAM
+optimizer: auto
+seed: 0                      # explicit seed for reproducibility (CLAUDE.md)
+
+# NOTE: SAHI tiled inference is applied at EVAL / inference time (Phase 2-3), not during
+# training. Training here is standard full-image YOLO11.

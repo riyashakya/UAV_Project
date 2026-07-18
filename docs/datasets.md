@@ -140,6 +140,34 @@ Folder layout the loaders expect (`src/perception/datasets/loaders.py`):
 Tip: VisDrone is the easy one — it auto-downloads during training. The other three are manual
 (IEEE DataPort for SARD; BinaLab GitHub for RescueNet + FloodNet).
 
+## Real instance counts (built 2026-07-19)
+
+From the actual downloads via `make build-datasets ARGS=--dry-run`:
+
+**Detect set (Model A)** — 9,000 images (train 7,858 / val 944 / test 198):
+
+| class | VisDrone | SARD | total |
+|---|--:|--:|--:|
+| person | 120,365 | 6,532 | **126,897** |
+| vehicle | 205,663 | 0 | **205,663** |
+
+**Segment set (Model B)** — RescueNet ready (train + val, index masks); FloodNet pending
+(see below). Counts will be filled in once the seg set is built.
+
+### On-disk formats actually encountered (loaders handle these)
+
+- **VisDrone** ships the **raw** annotation format (`annotations/*.txt`, comma-separated,
+  absolute pixels, category id in field 6, ids 0–11) — *not* pre-converted YOLO. The loader
+  parses it directly and normalises by image size.
+- **SARD** (Roboflow VOC export) collapses all six poses to a single **`human`** class; the
+  pose sub-labels are therefore not available from this download.
+- **RescueNet** masks are single-channel **index masks** (values 0–10); originals live in the
+  sibling `*-org-img/` folder.
+- **FloodNet** ⚠️ — the file you download must be the **index masks + original images** from
+  `FloodNet-Supervised_v1.0`. The separate **`ColorMasks-FloodNetv1`** distribution is RGB
+  *visualisation* masks with **no original images**, and cannot be used to train — the loader
+  raises a clear error if handed an RGB mask.
+
 ## Known limitations (for the write-up)
 
 - **No survivor labels in disaster imagery.** No disaster dataset (RescueNet, FloodNet, xBD)

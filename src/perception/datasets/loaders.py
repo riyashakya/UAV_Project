@@ -1,15 +1,18 @@
 """Source-dataset loaders: read native annotations, emit ``UnifiedImage`` records.
 
 Four loaders behind one interface. Detect sources (VisDrone, SARD) yield boxes; segment
-sources (RescueNet, FloodNet) yield polygons traced from masks. Every loader routes native
-classes through its :class:`SourceMapping`, so an undeclared class raises instead of being
-silently dropped.
+sources (RescueNet, FloodNet) yield polygons traced from index masks. Every loader routes
+native classes through its :class:`SourceMapping`, so an undeclared class raises instead of
+being silently dropped. Each image is tagged with its ``split`` (train/val/test), inferred
+from the source folder name.
 
-Expected on-disk layouts (documented in docs/datasets.md):
-  * VisDrone : ``**/labels/*.txt`` YOLO boxes (via Ultralytics export), images in ``**/images/``.
-  * SARD     : ``**/*.xml`` Pascal VOC, images alongside.
-  * RescueNet: index-mask PNGs (``*lab*.png``), original ``.jpg`` alongside.
-  * FloodNet : index-mask PNGs (``*lab*.png``), original ``.jpg`` alongside.
+Expected on-disk layouts (documented in docs/datasets.md), matching the real downloads:
+  * VisDrone : ``VisDrone2019-DET-{train,val}/annotations/*.txt`` (RAW format), ``images/*.jpg``.
+  * SARD     : ``Sard/{train,valid,test}/*.xml`` Pascal VOC (Roboflow export), images alongside.
+  * RescueNet: ``segmentation-{trainset,validationset}/*-label-img/*_lab.png`` index masks,
+               originals in the sibling ``*-org-img/`` folder.
+  * FloodNet : index masks + originals (same shape as RescueNet). NOTE: the RGB "ColorMasks"
+               distribution is not usable here — see docs/datasets.md.
 """
 
 from __future__ import annotations
@@ -63,14 +66,31 @@ class SourceLoader(ABC):
                 return candidate
         return None
 
+    def _split_for(self, path: Path) -> str:
+        """Infer train/val/test from the path *below the dataset root* (avoids false hits)."""
+        try:
+            parts = [p.lower() for p in path.relative_to(self.root).parts]
+        except ValueError:
+            parts = [p.lower() for p in path.parts]
+        joined = "/".join(parts)
+        if "test" in joined:
+            return "test"
+        if "val" in joined:
+            return "val"
+        return "train"
+
 
 class VisDroneLoader(SourceLoader):
-    """VisDrone-DET in YOLO format (Ultralytics export)."""
+    """VisDrone-DET in its RAW annotation format.
+
+    Each line is ``left,top,width,height,score,category,truncation,occlusion`` in absolute
+    pixels; category id is field index 5 (0..11). Boxes are normalised by the image size.
+    """
 
     task = "detect"
 
     def _label_files(self) -> list[Path]:
-        return sorted(p for p in self.root.rglob("*.txt") if p.parent.name == "labels")
+        return sorted(p for p in self.root.rglob("*.txt") if p.parent.name == "annotations")
 
     def is_available(self) -> bool:
         return bool(self._label_files())
@@ -78,30 +98,43 @@ class VisDroneLoader(SourceLoader):
     def iter_images(self) -> Iterator[UnifiedImage]:
         for label_path in self._label_files():
             image_dir = label_path.parent.parent / "images"
-            image_path = self._find_image(image_dir, label_path.stem) or label_path
+            image_path = self._find_image(image_dir, label_path.stem)
+            if image_path is None:
+                continue  # cannot normalise boxes without the image size
+            width, height = Image.open(image_path).size
+
             detections: list[DetectInstance] = []
             for line in label_path.read_text().splitlines():
-                parts = line.split()
-                if not parts:
+                fields = [f for f in line.split(",") if f != ""]
+                if len(fields) < 6:
                     continue
-                class_id = int(float(parts[0]))
-                native = self.mapping.native[class_id]
+                left, top, w, h = (float(v) for v in fields[:4])
+                category = int(fields[5])
+                native = self.mapping.native[category]
                 unified = self.mapping.unified_for(native)
-                if unified is None:  # explicitly dropped
+                if unified is None:  # explicitly dropped (ignored-regions, bicycle, ...)
                     continue
-                xc, yc, w, h = (float(v) for v in parts[1:5])
-                detections.append(DetectInstance(cls=unified, bbox=BBox(xc, yc, w, h)))
+                if w <= 0 or h <= 0:
+                    continue
+                bbox = BBox(
+                    xc=(left + w / 2) / width,
+                    yc=(top + h / 2) / height,
+                    w=w / width,
+                    h=h / height,
+                )
+                detections.append(DetectInstance(cls=unified, bbox=bbox))
             yield UnifiedImage(
                 source=self.name,
                 image_path=image_path,
-                width=0,  # boxes already normalised; native size not needed for detect
-                height=0,
+                width=width,
+                height=height,
+                split=self._split_for(label_path),
                 detections=detections,
             )
 
 
 class SardLoader(SourceLoader):
-    """SARD in Pascal VOC XML. Every box is a person; pose kept as metadata."""
+    """SARD in Pascal VOC XML. Every box is a person; native label kept as metadata."""
 
     task = "detect"
 
@@ -114,11 +147,12 @@ class SardLoader(SourceLoader):
     def iter_images(self) -> Iterator[UnifiedImage]:
         keep_meta = self.mapping.keep_metadata
         for xml_path in self._xml_files():
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
+            root = ET.parse(xml_path).getroot()
             size = root.find("size")
             width = int(size.findtext("width")) if size is not None else 0
             height = int(size.findtext("height")) if size is not None else 0
+            if width == 0 or height == 0:
+                continue
             image_path = self._find_image(xml_path.parent, xml_path.stem) or xml_path
 
             detections: list[DetectInstance] = []
@@ -143,6 +177,7 @@ class SardLoader(SourceLoader):
                 image_path=image_path,
                 width=width,
                 height=height,
+                split=self._split_for(xml_path),
                 detections=detections,
             )
 
@@ -160,20 +195,36 @@ class _MaskLoader(SourceLoader):
     def is_available(self) -> bool:
         return bool(self._mask_files())
 
+    def _find_original(self, mask_path: Path) -> Path | None:
+        """Locate the RGB source image for a mask, incl. the sibling ``*-org-img`` folder."""
+        stem = mask_path.stem.replace("_lab", "").replace("-lab", "")
+        parent = mask_path.parent
+        sibling = parent.parent / parent.name.lower().replace("label", "org")
+        for directory in (sibling, parent):
+            found = self._find_image(directory, stem)
+            if found is not None:
+                return found
+        return None
+
     def iter_images(self) -> Iterator[UnifiedImage]:
+        index_to_unified = self.mapping.index_to_unified()
         # Authoritative values live in configs/datasets/default.yaml; these fallbacks only
         # apply if a caller omits the build config entirely, and must mirror that file.
-        index_to_unified = self.mapping.index_to_unified()
         simplify_px = float(self.build_cfg.get("polygon_simplify_px", 1.0))
         min_points = int(self.build_cfg.get("min_polygon_points", 4))
         min_area = int(self.build_cfg.get("min_region_area_px", 32))
 
         for mask_path in self._mask_files():
             image = Image.open(mask_path)
-            if image.mode not in ("L", "P", "I"):
+            if image.mode == "P":
                 image = image.convert("L")
             mask = np.asarray(image)
-            height, width = mask.shape[:2]
+            if mask.ndim != 2:
+                raise ValueError(
+                    f"{self.name}: {mask_path.name} is an RGB colour mask, not an index mask. "
+                    "Index masks (one class number per pixel) are required — see docs/datasets.md."
+                )
+            height, width = mask.shape
 
             polys = mask_to_polygons(
                 mask,
@@ -183,12 +234,13 @@ class _MaskLoader(SourceLoader):
                 min_region_area_px=min_area,
             )
             segments = [SegInstance(cls=cls, polygon=poly) for cls, poly in polys]
-            original = self._find_image(mask_path.parent, mask_path.stem.replace("_lab", ""))
+            original = self._find_original(mask_path)
             yield UnifiedImage(
                 source=self.name,
                 image_path=original or mask_path,
                 width=width,
                 height=height,
+                split=self._split_for(mask_path),
                 segments=segments,
             )
 

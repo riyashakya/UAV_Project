@@ -24,9 +24,11 @@ unified:
 sources:
   visdrone:
     task: detect
-    # Ultralytics VisDrone.yaml order (ignored-regions & others removed during YOLO export).
+    # RAW VisDrone-DET annotation format: category id is field 6 (index 5), ids 0..11.
+    # `native` is in id order so the loader can index native[id] directly.
     # Zhu et al. 2021, TPAMI.
-    native: [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+    native: [ignored-regions, pedestrian, people, bicycle, car, van, truck,
+             tricycle, awning-tricycle, bus, motor, others]
     map:
       pedestrian: person
       people: person
@@ -34,14 +36,16 @@ sources:
       van: vehicle
       truck: vehicle
       bus: vehicle
-    drop: [bicycle, tricycle, awning-tricycle, motor]
+    drop: [ignored-regions, bicycle, tricycle, awning-tricycle, motor, others]
 
   sard:
     task: detect
-    # Sambolek & Ivasic-Kos 2021, IEEE Access. VOC XML; every box is a person, sub-labelled
-    # by pose. Pose is preserved as metadata for stratified eval (Phase 2), not as a class.
-    native: [standing, walking, running, sitting, lying, not-defined]
+    # Sambolek & Ivasic-Kos 2021, IEEE Access. VOC XML. The Roboflow export collapses all
+    # poses to a single `human` class; the original IEEE DataPort release sub-labels by pose.
+    # We accept both so either download works; all map to person.
+    native: [human, standing, walking, running, sitting, lying, not-defined]
     map:
+      human: person
       standing: person
       walking: person
       running: person
@@ -49,7 +53,7 @@ sources:
       lying: person
       not-defined: person
     drop: []
-    keep_metadata: pose      # store the native pose label on each unified detection
+    keep_metadata: pose      # native label kept per detection (pose, or 'human' if flattened)
 
   rescuenet:
     task: segment
