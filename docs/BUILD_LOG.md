@@ -11,6 +11,28 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
 
 ---
 
+## 2026-07-19 — Phase 2: local YOLO11 training on Apple-Silicon (MPS)
+
+**Status:** ⏳ training launched — Model A (detect) then Model B (segment), background.
+**Trigger:** user chose to train **locally** (not Colab), one "most suitable" model each.
+
+- **Trainer:** `src/perception/train.py` — config-driven, auto-device (mps→cuda→cpu), writes to
+  `outputs/perception/<timestamp>/`. `make train-a` / `make train-b`. Smoke-tested (1 epoch/1%)
+  and calibrated on the M4 GPU before the full run.
+- **Model:** `yolo11s` / `yolo11s-seg` — best speed/accuracy balance for local training.
+- **Key setting — imgsz 640 (not 1280):** matches the **SAHI inference slice size** (640×640),
+  so the detector trains at the resolution it sees per-tile and SAHI recovers tiny objects at
+  inference (Phase 2-3). Also makes MPS tractable (~15 min/epoch vs ~34 at 960). 60 epochs,
+  patience 15, batch 8, seed 0.
+- **Calibration:** ~34 min/epoch at 960px → moved to 640px (~15 min/epoch). Fixed a bug where
+  the post-train `model.val()` ran on CPU (383 s); now pinned to MPS.
+- **Honest limitation for the write-up:** local compute capped training resolution; a cloud-GPU
+  run at 1280px could lift small-object AP further. The size comparison (n/s/m/l) is deferred.
+
+Follow-up: record Model A/B mAP here when the runs finish; then Phase 3 (detection cache + oracle).
+
+---
+
 ## 2026-07-19 — Phase 1 hardening on real data + Phase 2 Colab training setup
 
 **Status:** ✅ detect set built on real downloads · 26 tests green · Colab notebook ready.
