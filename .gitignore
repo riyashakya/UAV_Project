@@ -33,3 +33,6 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+
+# Ultralytics default run dir
+runs/

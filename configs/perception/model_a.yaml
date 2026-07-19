@@ -6,12 +6,16 @@
 task: detect
 data: data/unified/detect/data.yaml
 
-sizes: [yolo11n, yolo11s, yolo11m, yolo11l]   # compared; only the size changes
-imgsz: 1280                  # VisDrone objects are tiny (68% < 32 px); 1280 keeps them resolvable
-compare_epochs: 50           # short, fair sweep to pick the best size...
-final_epochs: 100            # ...then retrain the winner this long as the final model
-patience: 15                 # sweep early-stop; 25 for the final run
-batch: -1                    # -1 = Ultralytics auto-batch to available VRAM
+# The single "most suitable" model for local training (best speed/accuracy balance).
+model: yolo11s.pt
+sizes: [yolo11n, yolo11s, yolo11m, yolo11l]   # (deferred) size comparison; only the size changes
+imgsz: 640                   # matches the SAHI inference slice size (640x640); the detector
+                             # trains at the resolution it sees per-tile, and SAHI recovers the
+                             # tiny objects at inference (Phase 2-3). Also keeps MPS tractable.
+final_epochs: 60             # local single-model run; early-stopped by patience
+compare_epochs: 50           # (deferred) size-comparison sweep length
+patience: 15                 # stop if val mAP hasn't improved for 15 epochs
+batch: 8                     # fixed batch: auto-batch (-1) is CUDA-only; 8 is a safe MPS batch (calibrated)
 optimizer: auto
 seed: 0                      # explicit seed for reproducibility (CLAUDE.md)
 

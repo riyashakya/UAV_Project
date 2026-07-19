@@ -35,6 +35,12 @@ fmt:  ## Auto-format and auto-fix with ruff
 build-datasets:  ## Phase 1: unify source datasets -> data/unified/ (add --dry-run to preview)
 	$(UV) run python -m src.perception.datasets.build $(ARGS)
 
+train-a:  ## Phase 2: train Model A (detect) locally -> outputs/perception/
+	$(UV) run python -m src.perception.train --config configs/perception/model_a.yaml $(ARGS)
+
+train-b:  ## Phase 2: train Model B (segment) locally -> outputs/perception/
+	$(UV) run python -m src.perception.train --config configs/perception/model_b.yaml $(ARGS)
+
 cache-dets:  ## Phase 3: offline YOLO pass -> data/cache/detections.parquet
 	$(UV) run python -m src.perception.detect_cache
 

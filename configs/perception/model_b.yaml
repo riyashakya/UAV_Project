@@ -4,12 +4,14 @@
 task: segment
 data: data/unified/seg/data.yaml
 
-sizes: [yolo11n-seg, yolo11s-seg, yolo11m-seg, yolo11l-seg]   # compared; only the size changes
-imgsz: 1024                  # masks are 3000x4000 (downscaled to 1280 on disk); 1024 balances detail vs VRAM
-compare_epochs: 50           # short, fair sweep to pick the best size...
-final_epochs: 100            # ...then retrain the winner this long
+# The single "most suitable" model for local training (best speed/accuracy balance).
+model: yolo11s-seg.pt
+sizes: [yolo11n-seg, yolo11s-seg, yolo11m-seg, yolo11l-seg]   # (deferred) size comparison
+imgsz: 640                   # local MPS-tractable; images are already downscaled to 1280 on disk
+final_epochs: 60             # local single-model run; early-stopped by patience
+compare_epochs: 50           # (deferred) size-comparison sweep length
 patience: 15
-batch: -1                    # auto-batch
+batch: 8                     # segmentation is heavier than detect; 8 is a safe MPS batch at 640
 optimizer: auto
 seed: 0
 
