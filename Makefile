@@ -41,6 +41,9 @@ train-a:  ## Phase 2: train Model A (detect) locally -> outputs/perception/
 train-b:  ## Phase 2: train Model B (segment) locally -> outputs/perception/
 	$(UV) run python -m src.perception.train --config configs/perception/model_b.yaml $(ARGS)
 
+progress:  ## Show progress/ETA of the latest perception training run
+	$(UV) run python scripts/train_progress.py
+
 cache-dets:  ## Phase 3: offline YOLO pass -> data/cache/detections.parquet
 	$(UV) run python -m src.perception.detect_cache
 
