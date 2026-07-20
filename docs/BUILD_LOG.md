@@ -29,12 +29,20 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
 - **Honest limitation for the write-up:** local compute capped training resolution; a cloud-GPU
   run at 1280px could lift small-object AP further. The size comparison (n/s/m/l) is deferred.
 
-**Results — Model A (detect), 60 epochs, 640px, ~19 h on M4 MPS:**
-mAP@50 = **0.674**, mAP@50-95 = **0.392**, precision 0.79, recall 0.61. Best epoch was 60
-(still improving at the end — no early stop), so more epochs / a 1280px cloud run would likely
-lift it further.
+**Results — both models, 60 epochs, 640px, M4 MPS (Model A ~19 h, Model B ~16 h):**
 
-Follow-up: record Model B mAP when it finishes; then Phase 3 (detection cache + oracle).
+| Model | Task | mAP@50 | mAP@50-95 | P | R |
+|---|---|--:|--:|--:|--:|
+| A | detect (person, vehicle) | 0.674 | 0.392 | 0.79 | 0.61 |
+| B | segment — mask (bldg/road/water) | 0.410 | 0.266 | 0.67 | 0.43 |
+
+Both ran the full 60 epochs and were still improving at the end (no early stop) → more epochs
+or a 1280px cloud run would lift them. Model B is lower, as expected for disaster-class
+segmentation with class imbalance (road_blocked is the minority class).
+
+Follow-ups: (1) Phase-2 evaluation still owed — **SAHI vs full-frame ablation**, **AP
+stratified by object size**, per-class + per-source breakdown (the headline perception
+figures; `src/perception/eval.py`). (2) Then Phase 3 (detection cache + oracle).
 
 ---
 
