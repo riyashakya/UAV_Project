@@ -29,7 +29,12 @@ follow-ups. Acceptance criteria come from `TASK_PROMPTS.md`; timeline from `PROJ
 - **Honest limitation for the write-up:** local compute capped training resolution; a cloud-GPU
   run at 1280px could lift small-object AP further. The size comparison (n/s/m/l) is deferred.
 
-Follow-up: record Model A/B mAP here when the runs finish; then Phase 3 (detection cache + oracle).
+**Results — Model A (detect), 60 epochs, 640px, ~19 h on M4 MPS:**
+mAP@50 = **0.674**, mAP@50-95 = **0.392**, precision 0.79, recall 0.61. Best epoch was 60
+(still improving at the end — no early stop), so more epochs / a 1280px cloud run would likely
+lift it further.
+
+Follow-up: record Model B mAP when it finishes; then Phase 3 (detection cache + oracle).
 
 ---
 
