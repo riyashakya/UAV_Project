@@ -13,8 +13,8 @@ _Last updated: 2026-07-21._
 | 2b | Perception **evaluation** — SAHI vs full-frame, AP by object size, per-source | 3 | ✅ done |
 | 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ✅ done |
 | 4 | Simulator core (world, UAV energy model, engine) | 5 | ✅ done |
-| 5 | Partitioning + coverage paths | 6 | ⏳ **next** |
-| 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⬜ not started |
+| 5 | Partitioning + coverage paths | 6 | ✅ done |
+| 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⏳ **next** |
 | 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⬜ not started |
 | 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⬜ not started |
 | 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ⬜ not started |
@@ -40,6 +40,10 @@ _Last updated: 2026-07-21._
   `engine.py` (deterministic fixed-timestep loop, event log, oracle survey hook). `make sim
   SCEN=flood_a SEED=0` runs 4 UAVs × 60 min in **0.59 s**, 100% coverage; same seed → byte-identical
   logs; RTH-from-5km lands safely. 48 tests green.
+- **Phase 5:** partitioning + coverage. `partition.py` — `grid` baseline + `weighted_voronoi`
+  (Lloyd + greedy boundary rebalance) that equalises sector *workload* to within 5% (vs the
+  grid's spread of 10 on a priority field, Voronoi gets 2). `coverage.py` — boustrophedon sweep
+  with an explicit last-row fix; >99% cell visitation. 58 tests green.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 

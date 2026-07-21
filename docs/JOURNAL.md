@@ -11,6 +11,25 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Phase 5: partitioning + coverage paths
+
+- **Request:** start Phase 5.
+- **Summary:** implement `src/coordination/partition.py` (divide AOI into N sectors: `grid`
+  baseline + `weighted_voronoi` balanced by prior hazard priority) and
+  `src/coordination/coverage.py` (boustrophedon sweep within a sector, parameterised by camera
+  footprint width and sidelap).
+- **Root cause / motivation:** the coordination study needs a fair *static* partitioning +
+  coverage baseline to compare the adaptive reallocation (Phase 6) against.
+- **Solution:** weighted Voronoi via Lloyd relaxation + greedy boundary rebalancing to equalise
+  per-sector workload; boustrophedon with an explicit last-row fix so the final strip is never
+  skipped when sector height isn't a multiple of the footprint step.
+- **Why this solution:** greedy rebalancing guarantees the <5% workload balance criterion;
+  the last-row fix targets exactly the classic coverage bug the acceptance test checks.
+- **Files changed:** `src/coordination/{partition,coverage}.py`,
+  `configs/coordination/default.yaml`, `tests/test_partition.py`, `tests/test_coverage.py`.
+- **Status:** ✅ done. Weighted-Voronoi workload within 5% (uniform priority; spread 2 vs grid's
+  10 on a clustered-priority field); coverage >99%; last-row bug caught by test. 58 tests green.
+
 ## 2026-07-21 — Remove AI attribution from git history
 
 - **Request:** remove Claude from the contributors list; no AI assistant traced in GitHub.

@@ -178,7 +178,7 @@ datasets, NeRF, tracking) pushes it toward mediocre.
 1. **Phase 2b evaluation** — SAHI-vs-full-frame, AP by object size, domain-gap study (turns the
    trained models into the perception chapter's headline figures). Cheap; do it next.
 2. **Agree the focus with the supervisor** — confirm depth on coordination + drift, park NeRF.
-3. **Phase 5 → 6 → 9** — partitioning/coverage, then the auction reallocation with baselines,
-   then the Monte-Carlo evaluation harness. This is the contribution. (Phases 3 and 4 — the
-   oracle bridge and the deterministic simulator core — are now done.)
+3. **Phase 6 → 9** — the auction reallocation with baselines, then the Monte-Carlo evaluation
+   harness. **This is the contribution.** (Phases 3–5 — the oracle bridge, the deterministic
+   simulator core, and the static partitioning/coverage baseline — are now done.)
 4. **Phase 7 drift** — once coordination works, add drift-driven re-tasking.

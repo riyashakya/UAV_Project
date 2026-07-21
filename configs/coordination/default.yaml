@@ -1,0 +1,12 @@
+# Coordination: partitioning + coverage (Phase 5). No magic numbers in src/.
+
+partition:
+  strategy: weighted_voronoi   # grid (naive baseline) | weighted_voronoi (workload-balanced)
+  balance_tol: 0.05            # target: sector workloads within 5% of each other
+  max_rebalance_iters: 2000    # greedy boundary-swap cap
+
+coverage:
+  # Camera swath width on the ground (m). With a downward camera this is 2*altitude*tan(HFOV/2);
+  # ~220 m is a plausible swath just above the 200 m cell size so a single pass covers a cell row.
+  footprint_width_m: 220.0
+  sidelap: 0.2                 # fraction of overlap between adjacent sweep lines (0..1)
