@@ -11,6 +11,24 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Phase 2b: perception evaluation (SAHI ablation + size-stratified AP)
+
+- **Request:** start Phase 2 evaluation on the trained Model A.
+- **Summary:** implement `src/perception/eval.py` to compare **full-frame vs SAHI tiled
+  inference**, report **AP stratified by object size** (COCO small/medium/large), and a
+  **per-source** breakdown (VisDrone-val vs SARD-val) of the combined model.
+- **Root cause / motivation:** training (2a) produced models but no *result*; the marked
+  perception contribution is the SAHI/small-object comparison and the domain breakdown.
+- **Solution:** run the model once full-frame and once with SAHI (640 slices, 0.2 overlap) over
+  the detect val set; convert GT + predictions to COCO format and score with pycocotools to get
+  AP_s/m/l; evaluate on all + per-source image subsets (no retraining needed).
+- **Why this solution:** pycocotools is the standard for size-stratified AP; running inference
+  once and slicing the eval by subset is cheap. Full train-on-A/test-on-B domain-gap ablation
+  would need 2 more ~20 h trainings — deferred; the per-source-subset view gives the signal now.
+- **Files changed:** `src/perception/eval.py` (impl), `configs/perception/eval.yaml` (new),
+  `pyproject.toml` (add pycocotools), `docs/{ROADMAP,PROGRESS_REPORT}.md` (results).
+- **Status:** ⏳ in progress.
+
 ## 2026-07-21 — Push repository to GitHub
 
 - **Request:** push all work so far to `https://github.com/riyashakya/UAV_Project.git`.

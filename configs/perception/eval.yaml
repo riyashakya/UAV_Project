@@ -1,0 +1,18 @@
+# Phase 2b — perception evaluation config.
+# Full-frame vs SAHI tiled inference on Model A, with COCO size-stratified AP and a per-source
+# breakdown. Weights auto-resolve to the newest detect run unless set explicitly.
+
+detect_weights: null                       # null -> latest outputs/perception/detect_*/weights/best.pt
+val_images: data/unified/detect/images/val
+val_labels: data/unified/detect/labels/val
+classes: [person, vehicle]                 # detect taxonomy order (category_id = index + 1)
+
+imgsz: 640                                  # inference size (matches training + SAHI slice)
+conf: 0.001                                 # low threshold: keep detections so AP integrates properly
+max_det: 300
+
+sahi:
+  slice: 640                               # SAHI slice size (Akyon et al. 2022)
+  overlap: 0.2                             # slice overlap ratio
+
+sources: [visdrone, sard]                  # per-source subsets (by image filename prefix)

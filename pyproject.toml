@@ -35,6 +35,7 @@ perception = [
     "torch>=2.2",
     "ultralytics>=8.3",
     "sahi>=0.11",
+    "pycocotools>=2.0",   # COCO size-stratified AP (small/medium/large) for Phase 2b eval
 ]
 dev = [
     "pytest>=8.0",
