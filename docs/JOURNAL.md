@@ -20,7 +20,7 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 - **Why this solution:** standard first push; nothing large or sensitive travels (data/ and *.pt
   are ignored). Credentials must come from the user's own git/GitHub auth — never entered here.
 - **Files changed:** none (git metadata only; adds `origin` remote).
-- **Status:** ⏳ attempting push (auth depends on the user's saved GitHub credentials).
+- **Status:** ✅ done — pushed to `origin/main` (13 commits). Future work: `git push` keeps it synced.
 
 ## 2026-07-21 — Project-tracking docs, progress report, and strategic review
 
