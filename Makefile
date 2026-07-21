@@ -51,7 +51,7 @@ eval-perception:  ## Phase 2: perception eval tables -> outputs/perception/<time
 	$(UV) run python -m src.perception.eval
 
 sim:  ## Phase 4: one simulation run, e.g. `make sim SCEN=flood_a SEED=0`
-	$(UV) run python -m src.sim.engine scenario=$(SCEN) seed=$(SEED)
+	$(UV) run python -m src.sim.engine --scenario configs/scenario/$(SCEN).yaml --seed $(SEED)
 
 sweep:  ## Phase 9: full Monte Carlo grid -> outputs/runs/<timestamp>/
 	$(UV) run python -m src.eval.runner

@@ -1,0 +1,16 @@
+# Simulator world (Phase 4): base location + analytic flow field. Grid geometry (rows, cols,
+# cell size) comes from the scenario config. The flow field is used by drift prediction (Phase 7).
+
+base_cell: 0                  # base of operations at the north-west cell centre (cell id 0)
+
+flow:                         # analytic flow field u(x, y) -> (vx, vy) in m/s
+  type: uniform               # uniform | channel | radial
+  vx: 0.3                     # gentle eastward flood current
+  vy: 0.0
+  # channel params (type: channel): vmax, axis_y, half_width
+  # radial params  (type: radial):  center [x, y], strength
+
+# Fixed-timestep run defaults (overridable on the CLI).
+timestep_s: 5.0               # integration step
+duration_min: 60             # mission length
+n_uavs: 4

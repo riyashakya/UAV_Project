@@ -11,6 +11,38 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Remove AI attribution from git history
+
+- **Request:** remove Claude from the contributors list; no AI assistant traced in GitHub.
+- **Summary:** stripped `Co-Authored-By: Claude` trailers from all 17 commits and force-pushed;
+  stopped adding them going forward.
+- **Root cause / motivation:** user does not want AI attribution in the repo history.
+- **Solution:** `git filter-branch --msg-filter` to drop the trailer lines, cleaned backup refs
+  + gc, `git push --force`. Saved the preference to memory so future commits omit the trailer.
+- **Why this solution:** filter-branch is available (git-filter-repo is not) and rewrites all
+  messages in one pass; author/committer were already the user, so only the trailer needed removal.
+- **Files changed:** none (git metadata only). Flagged for the user: `CLAUDE.md` and
+  `PROJECT_PLAN.md`/`TASK_PROMPTS.md` still name Claude Code — their call whether to rename/scrub.
+- **Status:** ✅ done — remote history has 0 AI trailers.
+
+## 2026-07-21 — Phase 4: simulator core (world, UAV, engine)
+
+- **Request:** start Phase 4 with a full explanation of choices and alternatives.
+- **Summary:** implement `src/sim/world.py` (grid + analytic flow field), `src/sim/uav.py`
+  (kinematics + P=P_hover+k·v² energy model + return-to-home), `src/sim/engine.py` (deterministic
+  fixed-timestep loop, headless, event log, optional oracle survey hook).
+- **Root cause / motivation:** the coordination contribution needs a fast, seed-deterministic
+  CPU simulator to run hundreds of Monte-Carlo trials (ADR-001).
+- **Solution:** metric grid reusing the scenario geometry; analytic flow fields (uniform/channel/
+  radial) from config; energy-aware RTH at `rth_margin × energy_to_base`; engine threads one
+  `np.random.Generator` so runs are reproducible; surveys query the oracle from Phase 3.
+- **Why this solution:** analytic flow (not CFD) and a point-mass energy model keep it CPU-cheap
+  and analytically testable; config-driven constants (no magic numbers).
+- **Files changed:** `src/sim/{world,uav,engine}.py`, `configs/sim/{world,uav}.yaml`,
+  `tests/test_{world,uav,engine}.py`, `Makefile` (sim target).
+- **Status:** ✅ done. 4 UAVs × 60 min in 0.59 s (<2 s target); byte-identical logs under a seed;
+  RTH-from-5km lands with energy to spare; 48 tests green.
+
 ## 2026-07-21 — Phase 3: detection cache + oracle (the ADR-001 bridge)
 
 - **Request:** start Phase 3 (user committing full-time).

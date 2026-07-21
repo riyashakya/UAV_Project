@@ -12,8 +12,8 @@ _Last updated: 2026-07-21._
 | 2a | Perception **training** (Model A detect, Model B segment) | 2 | ✅ done |
 | 2b | Perception **evaluation** — SAHI vs full-frame, AP by object size, per-source | 3 | ✅ done |
 | 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ✅ done |
-| 4 | Simulator core (world, UAV energy model, engine) | 5 | ⏳ **next** |
-| 5 | Partitioning + coverage paths | 6 | ⬜ not started |
+| 4 | Simulator core (world, UAV energy model, engine) | 5 | ✅ done |
+| 5 | Partitioning + coverage paths | 6 | ⏳ **next** |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⬜ not started |
 | 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⬜ not started |
 | 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⬜ not started |
@@ -35,6 +35,11 @@ _Last updated: 2026-07-21._
   models over the flood_a scenario → `data/cache/detections.parquet` (768 detections / 36
   cells, synthetic georeferencing). `src/sim/oracle.py` serves them with seeded false-negative +
   latency noise; deterministic under seed; an AST test proves `src/sim` never imports the detector.
+- **Phase 4:** simulator core — `world.py` (metric grid + analytic flow field: uniform/channel/
+  radial), `uav.py` (P=P_hover+k·v² energy model + return-to-home at 1.3× energy-to-base),
+  `engine.py` (deterministic fixed-timestep loop, event log, oracle survey hook). `make sim
+  SCEN=flood_a SEED=0` runs 4 UAVs × 60 min in **0.59 s**, 100% coverage; same seed → byte-identical
+  logs; RTH-from-5km lands safely. 48 tests green.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 
