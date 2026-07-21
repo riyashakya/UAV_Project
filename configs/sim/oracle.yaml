@@ -1,0 +1,12 @@
+# Oracle noise model (Phase 3) — applied when a UAV enters a cell and queries detections.
+# These are illustrative modelling assumptions, NOT measured values; Phase 9 sweeps them in a
+# sensitivity analysis. Values reflect that thin/rare hazards are missed more often.
+
+false_negative_rate:       # per-class probability a real detection is missed
+  person: 0.10
+  vehicle: 0.05
+  building_damaged: 0.15
+  road_blocked: 0.20       # thin, rare class -> highest miss rate
+  water: 0.05
+
+latency_s: [0.0, 2.0]      # uniform per-detection reporting latency, seconds

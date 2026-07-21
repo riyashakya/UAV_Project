@@ -1,0 +1,24 @@
+# Scenario flood_a — a synthetic flood AOI laid out on a grid (Phase 3).
+# Our datasets have no geotags, so the geographic layout is synthesised and marked
+# synthetic_geo=True in the cache. Both models run on every cell image.
+
+name: flood_a
+grid: { rows: 6, cols: 6 }     # 36 cells
+cell_size_m: 200               # 200 m square cells -> 1.2 km x 1.2 km AOI
+# Synthetic anchor near Houston, TX (FloodNet imagery is post-Hurricane Harvey). Not a real
+# geolocation of the imagery — it only fixes the grid's origin for metric/route maths later.
+origin_wgs84: { lat: 29.75, lon: -95.36 }
+synthetic_geo: true
+
+# Imagery placed onto the grid, north-west cell first. FloodNet frames carry the flood hazards
+# (Model B); VisDrone frames carry survivors/vehicles (Model A) — composited because no single
+# dataset has both (the survivor domain gap, documented in datasets.md).
+sources:
+  - name: floodnet
+    dir: data/raw/floodnet/FloodNet-Supervised_v1.0/val/val-org-img
+    glob: "*.jpg"
+    n: 24
+  - name: visdrone
+    dir: data/unified/detect/images/val
+    glob: "visdrone_*.jpg"
+    n: 12

@@ -11,6 +11,27 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Phase 3: detection cache + oracle (the ADR-001 bridge)
+
+- **Request:** start Phase 3 (user committing full-time).
+- **Summary:** implement `src/perception/detect_cache.py` (runs both models over a scenario's
+  imagery once → `data/cache/detections.parquet`), `src/sim/oracle.py` (the only bridge; serves
+  cached detections with configurable false-negative + latency noise, deterministic under seed),
+  and a test that walks the import graph of `src/sim/` to prove nothing reaches `ultralytics`.
+- **Root cause / motivation:** ADR-001 — perception and coordination must stay decoupled; the
+  oracle is the single, controllable interface the simulator uses to learn about the world.
+- **Solution:** synthetic-grid scenario (no geotags in the datasets → `synthetic_geo=True`,
+  flat-earth lat/lon from a config anchor); cache columns per spec; oracle reads parquet with
+  pandas only (no torch). AST import-graph test enforces the firewall statically.
+- **Why this solution:** keeps the heavy detector out of the sim (fast CPU Monte-Carlo later);
+  georeferencing is honestly labelled synthetic; determinism via a threaded `np.random.Generator`.
+- **Files changed:** `src/sim/oracle.py`, `src/perception/detect_cache.py`,
+  `configs/scenario/flood_a.yaml`, `configs/sim/oracle.yaml`, `tests/test_oracle.py`,
+  `tests/test_sim_isolation.py`, `tests/test_detect_cache.py`.
+- **Status:** ✅ done. All 3 acceptance criteria met: cache builds (flood_a, 768 detections /
+  36 cells), oracle deterministic under seed (verified), AST firewall test passes (src/sim
+  can't reach ultralytics). 35 tests green.
+
 ## 2026-07-21 — Phase 2b: perception evaluation (SAHI ablation + size-stratified AP)
 
 - **Request:** start Phase 2 evaluation on the trained Model A.

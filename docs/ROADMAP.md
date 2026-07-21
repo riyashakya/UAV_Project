@@ -11,8 +11,8 @@ _Last updated: 2026-07-21._
 | 1 | Dataset unification (VisDrone, SARD, RescueNet, FloodNet → 2 unified sets) | 1 | ✅ done |
 | 2a | Perception **training** (Model A detect, Model B segment) | 2 | ✅ done |
 | 2b | Perception **evaluation** — SAHI vs full-frame, AP by object size, per-source | 3 | ✅ done |
-| 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ⏳ **next** |
-| 4 | Simulator core (world, UAV energy model, engine) | 5 | ⬜ not started |
+| 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ✅ done |
+| 4 | Simulator core (world, UAV energy model, engine) | 5 | ⏳ **next** |
 | 5 | Partitioning + coverage paths | 6 | ⬜ not started |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⬜ not started |
 | 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⬜ not started |
@@ -31,6 +31,10 @@ _Last updated: 2026-07-21._
   large 0.78) quantifies the small-object difficulty; SARD easier than VisDrone (AP@50 0.88 vs
   0.65); naive SAHI *reduced* AP (scale mismatch — needs slicing-aided fine-tuning). See
   PROGRESS_REPORT §6.
+- **Phase 3:** detection cache + oracle (the ADR-001 bridge). `make cache-dets` runs both
+  models over the flood_a scenario → `data/cache/detections.parquet` (768 detections / 36
+  cells, synthetic georeferencing). `src/sim/oracle.py` serves them with seeded false-negative +
+  latency noise; deterministic under seed; an AST test proves `src/sim` never imports the detector.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 

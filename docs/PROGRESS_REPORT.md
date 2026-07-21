@@ -9,10 +9,10 @@ Simulation-based · _Report date: 2026-07-21_
 
 The engineering foundation and the perception subsystem are complete: a reproducible,
 config-driven codebase; four real UAV datasets unified into two training sets under one
-taxonomy; and two YOLO11 models trained on real labelled imagery (person/vehicle detection and
-building/road/water segmentation). **No coordination, simulation, drift, or routing has been
-built yet** — which is exactly where the project's research contribution is meant to come from.
-The project is at a decision point (see §7).
+taxonomy; two YOLO11 models trained and evaluated on real labelled imagery; and the
+perception→simulator bridge (the cached detection oracle, Phase 3) in place. **The coordination,
+simulation, drift, and routing themselves are not built yet** — which is exactly where the
+project's research contribution is meant to come from. The project is at a decision point (§7).
 
 ## 2. Research questions
 
@@ -178,6 +178,7 @@ datasets, NeRF, tracking) pushes it toward mediocre.
 1. **Phase 2b evaluation** — SAHI-vs-full-frame, AP by object size, domain-gap study (turns the
    trained models into the perception chapter's headline figures). Cheap; do it next.
 2. **Agree the focus with the supervisor** — confirm depth on coordination + drift, park NeRF.
-3. **Phase 3 → 6 → 9** — detection cache/oracle, then the simulator, then the auction
-   reallocation with baselines, then the Monte-Carlo evaluation harness. This is the contribution.
+3. **Phase 4 → 6 → 9** — the simulator core, then the auction reallocation with baselines, then
+   the Monte-Carlo evaluation harness. This is the contribution. (Phase 3, the detection
+   cache + oracle bridge, is now done.)
 4. **Phase 7 drift** — once coordination works, add drift-driven re-tasking.
