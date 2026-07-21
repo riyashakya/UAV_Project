@@ -27,7 +27,10 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
   would need 2 more ~20 h trainings — deferred; the per-source-subset view gives the signal now.
 - **Files changed:** `src/perception/eval.py` (impl), `configs/perception/eval.yaml` (new),
   `pyproject.toml` (add pycocotools), `docs/{ROADMAP,PROGRESS_REPORT}.md` (results).
-- **Status:** ⏳ in progress.
+- **Status:** ✅ done. Result: size-stratified AP small 0.26 / med 0.59 / large 0.78; SARD
+  easier than VisDrone; **naive SAHI reduced AP** (train/inference scale mismatch — documented
+  as an honest negative result, fix = slicing-aided fine-tuning). Full numbers in
+  PROGRESS_REPORT §6.
 
 ## 2026-07-21 — Push repository to GitHub
 

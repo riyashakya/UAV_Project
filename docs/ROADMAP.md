@@ -10,8 +10,8 @@ _Last updated: 2026-07-21._
 | 0 | Repo scaffold, tooling, ADRs | 1 | ✅ done |
 | 1 | Dataset unification (VisDrone, SARD, RescueNet, FloodNet → 2 unified sets) | 1 | ✅ done |
 | 2a | Perception **training** (Model A detect, Model B segment) | 2 | ✅ done |
-| 2b | Perception **evaluation** — SAHI vs full-frame, AP by object size, per-class/per-source domain gap | 3 | ⏳ **next** |
-| 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ⬜ not started |
+| 2b | Perception **evaluation** — SAHI vs full-frame, AP by object size, per-source | 3 | ✅ done |
+| 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ⏳ **next** |
 | 4 | Simulator core (world, UAV energy model, engine) | 5 | ⬜ not started |
 | 5 | Partitioning + coverage paths | 6 | ⬜ not started |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⬜ not started |
@@ -27,6 +27,10 @@ _Last updated: 2026-07-21._
   person + 205,663 vehicle; seg: 6,599 building_damaged / 2,643 road_blocked / 6,597 water).
 - **Phase 2a:** local YOLO11s training on M4 MPS at 640px, 60 epochs each.
   Model A mAP@50 **0.674** / mAP@50-95 **0.392**; Model B mask mAP@50 **0.410** / mAP@50-95 **0.266**.
+- **Phase 2b:** COCO evaluation of Model A. Size-stratified AP (small 0.26 / medium 0.59 /
+  large 0.78) quantifies the small-object difficulty; SARD easier than VisDrone (AP@50 0.88 vs
+  0.65); naive SAHI *reduced* AP (scale mismatch — needs slicing-aided fine-tuning). See
+  PROGRESS_REPORT §6.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 

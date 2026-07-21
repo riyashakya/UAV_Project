@@ -94,6 +94,31 @@ Trained locally on Apple-Silicon (M4, MPS), YOLO11s, 640px, 60 epochs each.
   *comparison* still owed in Phase 2b: SAHI-vs-full-frame on small objects, AP stratified by
   object size, and the VisDrone-only/SARD-only/combined domain-gap study.
 
+### Phase 2b — evaluation results (Model A, 944 val images, COCO metrics)
+
+**Size-stratified AP (full-frame)** — quantifies the core small-object difficulty:
+
+| view | AP@[.5:.95] | AP@50 | AP_small | AP_medium | AP_large |
+|---|--:|--:|--:|--:|--:|
+| all | 0.389 | 0.665 | **0.258** | 0.585 | **0.778** |
+| VisDrone-val | 0.376 | 0.645 | 0.256 | 0.567 | 0.805 |
+| SARD-val | 0.479 | 0.876 | 0.276 | 0.528 | 0.696 |
+
+- **Small objects are ~3× harder than large ones** (AP 0.26 vs 0.78) — the headline perception
+  finding, and exactly what the small-object literature predicts.
+- **SARD is easier than VisDrone** (AP@50 0.88 vs 0.65): SARD persons are larger and scenes less
+  dense. This per-source gap is the domain/scene-difficulty signal.
+
+**SAHI vs full-frame ablation — an honest negative result:** naive SAHI *reduced* AP
+(all 0.175 vs 0.389; AP_small 0.111 vs 0.258, −0.15). This is a **train/inference object-scale
+mismatch**: the detector was trained on full frames downscaled to 640px, so when SAHI feeds it
+native-resolution 640px *slices*, objects appear at an unfamiliar (larger) scale. It matches the
+known caveat that SAHI's large gains require **slicing-aided fine-tuning** (training on slices),
+which we have not done. VisDrone-val (~1400px) is also below SAHI's ideal very-large-image
+regime; SAHI is expected to matter more on the true 3000×4000 disaster imagery (Phase 3), *with*
+slice-aware training. **Recommended follow-up:** slicing-aided fine-tune, then re-run this
+ablation — a clean, well-evidenced result either way.
+
 ## 7. Contribution and novelty — the honest assessment
 
 **As of today, the project contains no novel research contribution.** Unifying public datasets
