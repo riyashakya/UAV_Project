@@ -130,6 +130,39 @@ wins on near-nadir survey imagery, which is a legitimate finding.*
 
 ---
 
+## 11. Recent coordination & multi-UAV work (2020–2025) — for the contribution chapter
+
+*The seminal papers above (§6–9) ground the method; these recent ones show you're current and
+give you the direct comparison points a strong literature review needs. Read these when writing
+the coordination chapter.*
+
+**Multi-UAV task allocation & disaster coordination**
+- Reta et al. (2025) — *A distributed task allocation approach for multi-UAV persistent monitoring in dynamic environments*, Scientific Reports. [DOI](https://doi.org/10.1038/s41598-025-89787-3)
+- ★ (2023) — *Multi-UAV networks for disaster monitoring: challenges and opportunities*, Drone Systems & Applications. [DOI](https://doi.org/10.1139/dsa-2023-0079)
+- (2025) — *Decision-Making-Based Path Planning for Autonomous UAVs: A Survey*. [arXiv:2508.09304](https://arxiv.org/abs/2508.09304)
+
+**Auction / market-based MRTA (recent)**
+- ★ Sadeghi & Smith (2023) — *Auction Algorithm Sensitivity for Multi-Robot Task Allocation*. [arXiv:2306.16032](https://arxiv.org/abs/2306.16032)
+- (2025) — *Task Allocation in Mobile Robot Fleets: A Review*. [arXiv:2501.08726](https://arxiv.org/abs/2501.08726)
+- (2021) — *Greedy Decentralized Auction-based Task Allocation for Multi-Agent Systems*. [arXiv:2107.00144](https://arxiv.org/abs/2107.00144)
+- ★ (2020) — *The Application of Market-based Multi-Robot Task Allocation to Ambulance Dispatch*. [arXiv:2003.05550](https://arxiv.org/abs/2003.05550)
+- (2025) — *Uncertainty-Aware Multi-Robot Task Allocation With Strongly Coupled Inter-Robot Rewards*. [arXiv:2509.22469](https://arxiv.org/abs/2509.22469)
+- (2024) — *Multi-Robot Task Allocation and Path Planning with Maximum Range Constraints*. [arXiv:2409.06531](https://arxiv.org/abs/2409.06531)
+- (2023) — *Auction-Based Task Allocation and Motion Planning for Multi-Robot Systems with Human Supervision*, J. Intelligent & Robotic Systems. [DOI](https://doi.org/10.1007/s10846-023-01935-x)
+
+**Learning-based multi-UAV search & rescue** (compare against your auction baseline)
+- ★ (2024) — *Deep Reinforcement Learning for Time-Critical Wilderness Search and Rescue Using Drones*. [arXiv:2405.12800](https://arxiv.org/abs/2405.12800)
+- (2025) — *DRL-based Autonomous Decision-Making for Cooperative UAVs: A Search-and-Rescue Real-World Application*. [arXiv:2502.20326](https://arxiv.org/abs/2502.20326)
+- (2025) — *Recurrent Auto-Encoders for Enhanced Deep RL in Wilderness SAR Planning*. [arXiv:2502.19356](https://arxiv.org/abs/2502.19356)
+
+**Energy-aware coverage** (matches your UAV energy model + RTH)
+- ★ (2024) — *Energy-aware Multi-UAV Coverage Mission Planning with Optimal Speed of Flight*. [arXiv:2402.10529](https://arxiv.org/abs/2402.10529)
+- (2024) — *Communication and Energy-Aware Multi-UAV Coverage Path Planning for Networked Operations*. [arXiv:2411.02772](https://arxiv.org/abs/2411.02772)
+
+> These give you what the seminal papers can't: modern baselines to position against. Your angle
+> — auction reallocation driven by *cached real detections and predicted survivor drift*, scored
+> over Monte-Carlo seeds — is not covered by any of them, which is where the novelty sits.
+
 ### How to read this efficiently
 1. This week: Sections 1–3 (perception) — SAHI, VisDrone, YOLO11, COCO's size-stratified AP.
 2. Before Phase 6: Section 6 (auctions) — Contract Net + Gerkey & Matarić are your two must-cite.
