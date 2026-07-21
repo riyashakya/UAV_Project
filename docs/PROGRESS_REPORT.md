@@ -7,12 +7,13 @@ Simulation-based · _Report date: 2026-07-21_
 
 ## 1. Status in one paragraph
 
-The engineering foundation and the perception subsystem are complete: a reproducible,
-config-driven codebase; four real UAV datasets unified into two training sets under one
-taxonomy; two YOLO11 models trained and evaluated on real labelled imagery; and the
-perception→simulator bridge (the cached detection oracle, Phase 3) in place. **The coordination,
-simulation, drift, and routing themselves are not built yet** — which is exactly where the
-project's research contribution is meant to come from. The project is at a decision point (§7).
+Perception is complete (two YOLO11 models trained + evaluated on real imagery), and the
+coordination core now exists: the cached-detection oracle (Phase 3), the deterministic simulator
+(Phase 4), static partitioning + coverage (Phase 5), and **the auction-based reallocation with
+its three baselines (Phase 6)** — the contribution's mechanism. A first acceptance result shows
+the auction recovers abandoned work where static partitioning fails. **What remains for the
+contribution is the rigorous comparison** — the Monte-Carlo sweep with confidence intervals
+(Phase 9) that answers *does adaptive beat static, and by how much?* — plus drift (7) and routing (8).
 
 ## 2. Research questions
 
@@ -121,10 +122,12 @@ ablation — a clean, well-evidenced result either way.
 
 ## 7. Contribution and novelty — the honest assessment
 
-**As of today, the project contains no novel research contribution.** Unifying public datasets
-and training YOLO11 is careful, correct engineering, but it applies existing methods that many
-projects already do. This is normal at this stage — the contribution is *designed* to come from
-the parts not yet built:
+**The contribution's mechanism now exists (Phase 6); its *evidence* does not yet.** The auction
+reallocation + baselines are built and a scripted test shows the auction recovers work a failed
+UAV abandons while static partitioning loses it. But one scripted case is not a research result —
+the claim "adaptive beats static" only holds once it is shown over many Monte-Carlo seeds and
+conditions with confidence intervals (Phase 9). Training YOLO11 remains supporting engineering.
+The contribution is:
 
 1. **Adaptive multi-UAV task reallocation** (Phase 6) evaluated against three baselines with
    Monte-Carlo statistics (Phase 9) — *the* core contribution. The result "adaptive beats static

@@ -14,10 +14,10 @@ _Last updated: 2026-07-21._
 | 3 | Detection cache + oracle (`detections.parquet`, ADR-001 bridge) | 4 | ✅ done |
 | 4 | Simulator core (world, UAV energy model, engine) | 5 | ✅ done |
 | 5 | Partitioning + coverage paths | 6 | ✅ done |
-| 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ⏳ **next** |
+| 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ✅ done |
 | 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⬜ not started |
 | 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⬜ not started |
-| 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ⬜ not started |
+| 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ⏳ **next** |
 | 10 | 3D reconstruction study (NeRF/3DGS vs photogrammetry) | 12 | ✂️ descope candidate |
 
 ## Done in detail
@@ -44,6 +44,11 @@ _Last updated: 2026-07-21._
   (Lloyd + greedy boundary rebalance) that equalises sector *workload* to within 5% (vs the
   grid's spread of 10 on a priority field, Voronoi gets 2). `coverage.py` — boustrophedon sweep
   with an explicit last-row fix; >99% cell visitation. 58 tests green.
+- **Phase 6 (the contribution):** `allocation.py` — auction reallocation (Contract Net /
+  Gerkey & Matarić ST-SR-IA) + 3 baselines (`single_uav`, `static_partition_no_realloc`,
+  `random_walk`) behind one `Coordinator` interface. Engine made coordinator-driven with a
+  scripted-failure hook. **Acceptance test:** UAV-2 dies mid-sector → auction recovers to 100%
+  coverage; `static_partition_no_realloc` stays <95% (loses the abandoned cells). 64 tests green.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 

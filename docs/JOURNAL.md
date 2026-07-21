@@ -11,6 +11,29 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Phase 6: dynamic task reallocation (auction) + baselines — THE CONTRIBUTION
+
+- **Request:** start Phase 6.
+- **Summary:** implement `src/coordination/allocation.py` — a `Coordinator` with an
+  auction (Contract Net) reallocation policy and three baselines behind one interface
+  (`single_uav`, `static_partition_no_realloc`, `random_walk`); wire reallocation triggers
+  (UAV death/RTH abandons cells → re-auction; high-priority detection → upweight neighbours)
+  into the engine.
+- **Root cause / motivation:** this is the novel contribution — does adaptive reallocation beat
+  static partitioning? Needs the mechanism + the baselines it is measured against.
+- **Solution:** bid = a·travel + b·energy_penalty − c·priority (config weights); abandoned cells
+  auctioned to still-flying UAVs (lowest bid wins); idle auction UAVs loiter to stay available.
+  Engine refactored to be coordinator-driven with a scripted-failure hook (`fail_at`) for the
+  acceptance test; backward-compatible with the Phase-4 static `plan`.
+- **Why this solution:** Contract Net / Gerkey & Mataric ST-SR-IA applied online is the standard,
+  citable mechanism; the baselines share the interface so the comparison is fair.
+- **Files changed:** `src/coordination/allocation.py`, `src/sim/engine.py` (coordinator-driven),
+  `configs/coordination/default.yaml` (allocation), `tests/test_allocation.py`.
+- **Status:** ✅ done. Acceptance test passes: UAV-2 dies mid-sector → auction recovers to 100%
+  coverage while `static_partition_no_realloc` stays <95% (loses the cells). All 4 strategies run
+  on the real flood_a scenario; random_walk's redundant revisits show up as inflated found-counts
+  (a metric Phase 9 will report). 64 tests green; ADR-001 isolation still holds.
+
 ## 2026-07-21 — Phase 5: partitioning + coverage paths
 
 - **Request:** start Phase 5.

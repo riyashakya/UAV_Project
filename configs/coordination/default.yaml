@@ -10,3 +10,11 @@ coverage:
   # ~220 m is a plausible swath just above the 200 m cell size so a single pass covers a cell row.
   footprint_width_m: 220.0
   sidelap: 0.2                 # fraction of overlap between adjacent sweep lines (0..1)
+
+allocation:
+  # auction (the contribution) | static_partition_no_realloc | single_uav | random_walk
+  strategy: auction
+  # Bid = travel*a + energy_penalty*b - priority*c (lowest bid wins). Scaled so travel (metres,
+  # ~1e2-1e3) dominates, energy penalty (J, ~1e5) contributes mildly, priority (~1-15) breaks ties.
+  bid_weights: { travel: 1.0, energy: 0.0005, priority: 50.0 }
+  priority_boost: 3.0          # multiply neighbour-cell priority when a person is detected
