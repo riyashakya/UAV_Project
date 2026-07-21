@@ -11,6 +11,17 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Push repository to GitHub
+
+- **Request:** push all work so far to `https://github.com/riyashakya/UAV_Project.git`.
+- **Summary:** add the remote and push `main` (code + docs only; datasets/weights are gitignored).
+- **Root cause / motivation:** off-machine backup and supervisor visibility; the repo had no remote.
+- **Solution:** `git remote add origin <url>` then `git push -u origin main`.
+- **Why this solution:** standard first push; nothing large or sensitive travels (data/ and *.pt
+  are ignored). Credentials must come from the user's own git/GitHub auth — never entered here.
+- **Files changed:** none (git metadata only; adds `origin` remote).
+- **Status:** ⏳ attempting push (auth depends on the user's saved GitHub credentials).
+
 ## 2026-07-21 — Project-tracking docs, progress report, and strategic review
 
 - **Request:** (1) explain what segmentation is for; (2) create a rich change/decision log;
