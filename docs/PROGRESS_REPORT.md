@@ -122,12 +122,20 @@ ablation — a clean, well-evidenced result either way.
 
 ## 7. Contribution and novelty — the honest assessment
 
-**The contribution's mechanism now exists (Phase 6); its *evidence* does not yet.** The auction
-reallocation + baselines are built and a scripted test shows the auction recovers work a failed
-UAV abandons while static partitioning loses it. But one scripted case is not a research result —
-the claim "adaptive beats static" only holds once it is shown over many Monte-Carlo seeds and
-conditions with confidence intervals (Phase 9). Training YOLO11 remains supporting engineering.
-The contribution is:
+**The contribution now has evidence (Phase 9).** The Monte-Carlo sweep (`make sweep`, 1800 runs,
+~4 s) compares the auction against the baselines over 30 seeds under randomised mid-mission UAV
+failures. Headline (6 UAVs, area coverage, mean ± 95% CI):
+
+| condition | auction | static partitioning | Δ |
+|---|--:|--:|--:|
+| no failure | 100.0% | 100.0% | +0.0 pts |
+| one UAV fails | 100.0 ± 0.0% | 87.6 ± 2.3% | **+12.4 pts** |
+| two UAVs fail | 100.0 ± 0.0% | 74.5 ± 2.9% | **+25.5 pts** |
+
+**Adaptive reallocation statistically beats static partitioning under failure, and the advantage
+grows with the failure rate.** The nuance strengthens the story: `random_walk` matches coverage
+but *wastefully* (redundant-revisit ratio 1.1–1.24, more distance), and `single_uav` collapses
+(≈56% under two failures). Training YOLO11 remains supporting engineering. The contribution is:
 
 1. **Adaptive multi-UAV task reallocation** (Phase 6) evaluated against three baselines with
    Monte-Carlo statistics (Phase 9) — *the* core contribution. The result "adaptive beats static

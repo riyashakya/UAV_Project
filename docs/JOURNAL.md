@@ -11,6 +11,28 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-21 — Phase 9: evaluation harness + Monte-Carlo sweep (the evidence)
+
+- **Request:** start Phase 9.
+- **Summary:** implement `src/eval/metrics.py` (coordination metrics from an event log) and
+  `src/eval/runner.py` (`make sweep`): grid of {5 strategies incl. ablations} × {1,2,4,6 UAVs} ×
+  {none/one/two failures} × {30 seeds}, tidy Parquet + mean ± 95% CI summary answering whether
+  adaptive reallocation beats static partitioning.
+- **Root cause / motivation:** the Phase-6 mechanism needs *evidence over many seeds/conditions*
+  to be a research result, not one scripted case.
+- **Solution:** per-seed randomised UAV failures create the abandonment that differentiates the
+  strategies; metrics: coverage, time-to-90%, redundant-coverage ratio, survivors-found,
+  distance, completion, lost cells. Priority-upweight ablation (`auction_no_priority`); the
+  static baseline doubles as the reallocation-off ablation.
+- **Why this solution:** the sim is deterministic per seed, so randomised failures + oracle noise
+  give honest confidence intervals; the whole grid runs on CPU in seconds.
+- **Files changed:** `src/eval/{metrics,runner}.py`, `configs/eval/sweep.yaml`,
+  `tests/test_metrics.py`, `tests/test_runner.py`.
+- **Status:** ✅ done. `make sweep` = 1800 runs in ~4 s. **Headline: adaptive auction beats
+  static partitioning by +12.4 pts (one failure) and +25.5 pts (two failures) in coverage,
+  6 UAVs, mean ± 95% CI (100% vs 87.6% / 74.5%).** random_walk matches coverage but wastefully;
+  single_uav collapses. 69 tests green.
+
 ## 2026-07-21 — Phase 6: dynamic task reallocation (auction) + baselines — THE CONTRIBUTION
 
 - **Request:** start Phase 6.

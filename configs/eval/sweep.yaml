@@ -1,0 +1,19 @@
+# Monte-Carlo sweep grid (Phase 9). make sweep.
+# Randomised UAV failures per seed create the abandonment that separates the strategies.
+
+scenario: flood_a                # world geometry + oracle come from this scenario
+strategies:                      # auction_no_priority = priority-upweight ablation;
+  - auction                      # static_partition_no_realloc doubles as the realloc-off ablation
+  - static_partition_no_realloc
+  - single_uav
+  - random_walk
+  - auction_no_priority
+n_uavs: [1, 2, 4, 6]
+conditions: [none, one_fail, two_fail]   # number of UAVs that fail mid-mission
+n_seeds: 30
+
+fail_window_s: [20.0, 120.0]     # a failing UAV dies at a uniformly-random time in this window
+duration_min: 60
+timestep_s: 5.0
+coverage_target: 0.9             # for time-to-coverage
+complete_threshold: 0.95         # "mission completed" if final coverage >= this

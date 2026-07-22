@@ -15,9 +15,9 @@ _Last updated: 2026-07-21._
 | 4 | Simulator core (world, UAV energy model, engine) | 5 | ✅ done |
 | 5 | Partitioning + coverage paths | 6 | ✅ done |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ✅ done |
-| 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⬜ not started |
+| 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⏳ **next** |
 | 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⬜ not started |
-| 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ⏳ **next** |
+| 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ✅ done |
 | 10 | 3D reconstruction study (NeRF/3DGS vs photogrammetry) | 12 | ✂️ descope candidate |
 
 ## Done in detail
@@ -49,6 +49,11 @@ _Last updated: 2026-07-21._
   `random_walk`) behind one `Coordinator` interface. Engine made coordinator-driven with a
   scripted-failure hook. **Acceptance test:** UAV-2 dies mid-sector → auction recovers to 100%
   coverage; `static_partition_no_realloc` stays <95% (loses the abandoned cells). 64 tests green.
+- **Phase 9 (the evidence):** `eval/{metrics,runner}.py`. `make sweep` = 1800 runs in ~4 s.
+  **Headline (6 UAVs, coverage mean ± 95% CI): adaptive auction beats static partitioning by
+  +12.4 pts under one failure and +25.5 pts under two** (100% vs 87.6/74.5%); random_walk matches
+  coverage but wastefully (redundancy 1.1–1.24), single_uav collapses. `auction_no_priority`
+  ablation included. 69 tests green.
 
 ## Recommended focus (see PROGRESS_REPORT.md §6–7)
 
