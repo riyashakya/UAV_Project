@@ -11,6 +11,22 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-22 — Phase 7: flood survivor-drift prediction (SAROPS-style, the novel piece)
+
+- **Request:** start Phase 7.
+- **Summary:** implement `src/drift/advect.py` — Lagrangian particle advection of a detected
+  survivor in flowing water (flow × leeway + turbulent diffusion), Monte-Carlo cloud → 50/90%
+  containment polygons; a helper mapping a polygon to grid cells (for drift-driven re-tasking).
+- **Root cause / motivation:** RQ4 — the perception→drift→coordination loop is the standout
+  novelty; routing/search should target a drifting survivor's *polygon*, not a stale point.
+- **Solution / why:** adapts USCG SAROPS (leeway + Monte-Carlo containment) to UAV re-tasking;
+  containment via distance-peel convex hull (non-Gaussian-robust, no KDE dependency).
+- **Files changed:** `src/drift/advect.py`, `configs/drift/default.yaml`, `tests/test_drift.py`.
+- **Status:** ✅ done. All 4 acceptance criteria pass: zero-diffusion uniform flow → exact v·Δt;
+  containment area grows with horizon; 90% containment holds ≥90% and generalises to a fresh
+  cloud; region→cells mapping works. 74 tests green. RQ4 loop (feed containment cells into the
+  auction) is the next small integration.
+
 ## 2026-07-22 — Research questions, novelty, and related-work positioning
 
 - **Request:** expand to >3 research questions; explain how area allocation works and how flood

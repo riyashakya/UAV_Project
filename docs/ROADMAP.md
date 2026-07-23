@@ -15,8 +15,8 @@ _Last updated: 2026-07-21._
 | 4 | Simulator core (world, UAV energy model, engine) | 5 | ✅ done |
 | 5 | Partitioning + coverage paths | 6 | ✅ done |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ✅ done |
-| 7 | Flood survivor-drift prediction (most novel idea) | 10 | ⏳ **next** |
-| 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⬜ not started |
+| 7 | Flood survivor-drift prediction (most novel idea) | 10 | ✅ done |
+| 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⏳ **next** |
 | 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ✅ done |
 | 10 | 3D reconstruction study (NeRF/3DGS vs photogrammetry) | 12 | ✂️ descope candidate |
 
@@ -49,6 +49,12 @@ _Last updated: 2026-07-21._
   `random_walk`) behind one `Coordinator` interface. Engine made coordinator-driven with a
   scripted-failure hook. **Acceptance test:** UAV-2 dies mid-sector → auction recovers to 100%
   coverage; `static_partition_no_realloc` stays <95% (loses the abandoned cells). 64 tests green.
+- **Phase 7 (novel):** `drift/advect.py` — SAROPS-style Lagrangian advection of a detected
+  survivor (flow × leeway + turbulent diffusion) → 50/90% containment polygons; `cells_in_region`
+  maps a polygon to grid cells for drift-driven re-tasking (RQ4). Analytic test (zero-diffusion
+  uniform flow → exact v·Δt), containment grows with horizon, 90% polygon holds ≥90% + generalises.
+  74 tests green. _Next micro-step: wire the containment cells into the auction priority to run
+  the RQ4 experiment._
 - **Phase 9 (the evidence):** `eval/{metrics,runner}.py`. `make sweep` = 1800 runs in ~4 s.
   **Headline (6 UAVs, coverage mean ± 95% CI): adaptive auction beats static partitioning by
   +12.4 pts under one failure and +25.5 pts under two** (100% vs 87.6/74.5%); random_walk matches

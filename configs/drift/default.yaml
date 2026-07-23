@@ -1,0 +1,10 @@
+# Flood survivor-drift model (Phase 7). Adapted from USCG SAROPS (leeway + Monte-Carlo
+# containment). No magic numbers in src/ — every constant here with provenance.
+
+n_particles: 1000            # Monte-Carlo particles per detection
+horizon_s: 1800              # prediction horizon (30 min)
+timestep_s: 30.0             # advection step
+leeway_factor: 1.0           # survivor speed relative to the water (≈1 for a person in flow;
+                             # <1 if partially grounded/submerged) — SAROPS "leeway"
+k_h: 2.0                     # horizontal turbulent diffusivity (m^2/s); sets random spread
+containment_levels: [0.5, 0.9]   # probability-containment polygons to emit
