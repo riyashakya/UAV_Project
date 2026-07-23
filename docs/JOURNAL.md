@@ -11,6 +11,20 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-22 — Research questions, novelty, and related-work positioning
+
+- **Request:** expand to >3 research questions; explain how area allocation works and how flood
+  drift can be predicted from video; what novel additions are possible; which projects to
+  compare against.
+- **Summary:** wrote `docs/research_questions.md` — 6 research questions (1 primary + 5 sub),
+  a "novelty / what more can be added" list, and a related-work/positioning section.
+- **Root cause / motivation:** dissertation needs a richer RQ set and an explicit comparison
+  frame; the student is scoping the write-up.
+- **Solution / why:** consolidated planning artefact so RQs, novelty and related work live in
+  one citable place, mapped to which phase answers each.
+- **Files changed:** `docs/research_questions.md` (new), `docs/PROGRESS_REPORT.md` (RQ pointer).
+- **Status:** ✅ done (doc); explanations of allocation + drift given in chat.
+
 ## 2026-07-21 — Phase 9: evaluation harness + Monte-Carlo sweep (the evidence)
 
 - **Request:** start Phase 9.

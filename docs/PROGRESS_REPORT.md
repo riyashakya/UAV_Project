@@ -28,6 +28,10 @@ contribution is the rigorous comparison** — the Monte-Carlo sweep with confide
 > post-disaster imagery (the domain gap), and how much does tiled **SAHI** inference recover
 > small-object accuracy versus full-frame inference?
 
+The full set of **six research questions** (1 primary + 5 sub-questions on sensitivity, domain gap,
+drift-driven re-tasking, decoupling methodology, and hazard-aware routing), with the novelty and
+related-work positioning, is in [`research_questions.md`](research_questions.md).
+
 ## 3. Objectives and scope
 
 The approved proposal spans six objectives (coordination, detection, tracking, NeRF/3DGS, GIS
