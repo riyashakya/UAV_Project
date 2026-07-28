@@ -20,7 +20,10 @@ dependencies = [
     # dataset unification (Phase 1)
     "pillow>=10.2",           # read source imagery / segmentation masks
     "shapely>=2.0",           # mask -> YOLO-seg polygon geometry
-    "scikit-image>=0.22",     # sub-pixel contour extraction from masks
+    "scikit-image>=0.22",     # sub-pixel contour extraction from masks (also pulls in networkx)
+    # coordination + routing + figures
+    "networkx>=3.0",          # road graph + safe-path search (Phase 8)
+    "matplotlib>=3.7",        # static Pareto-front / result figures (CLAUDE.md: matplotlib only)
 ]
 
 [project.optional-dependencies]

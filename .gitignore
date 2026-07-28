@@ -36,3 +36,6 @@ htmlcov/
 
 # Ultralytics default run dir
 runs/
+
+# Office lock/temp files (e.g. ~$progress_slides.pptx)
+~$*

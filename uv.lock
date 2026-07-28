@@ -1221,6 +1221,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "hydra-core" },
+    { name = "matplotlib" },
+    { name = "networkx" },
     { name = "numpy" },
     { name = "omegaconf" },
     { name = "pandas" },
@@ -1253,6 +1255,8 @@ perception = [
 requires-dist = [
     { name = "geopandas", marker = "extra == 'geo'", specifier = ">=0.14" },
     { name = "hydra-core", specifier = ">=1.3.2" },
+    { name = "matplotlib", specifier = ">=3.7" },
+    { name = "networkx", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=1.26,<2.0" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "osmnx", marker = "extra == 'geo'", specifier = ">=1.9" },

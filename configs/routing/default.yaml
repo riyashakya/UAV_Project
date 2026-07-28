@@ -1,0 +1,23 @@
+# Hazard-weighted rescue routing (Phase 8). No magic numbers in src/.
+
+# Per-cell risk added to the road graph by each hazard class (dimensionless; higher = avoid).
+risk:
+  water: 1.0                 # flooded cell — strongly avoided
+  building_damaged: 0.7      # debris / collapse hazard nearby
+  # road_blocked is not a risk weight — it REMOVES the cell's road edges entirely.
+
+# Pareto sweep: edge weight = length * (1 + lambda * risk). Sweep lambda from 0 (shortest) up.
+pareto:
+  lambda_max: 50.0           # largest lambda (near-safest route)
+  n_lambda: 40               # samples, log-spaced 0..lambda_max
+
+# Demo route for the flood_a scenario (grid cell ids; base at 0).
+demo:
+  source_cell: 0             # rescue base (NW corner)
+  target_cell: 5             # survivor across the flood corridor (NE corner)
+  # A contiguous flooded corridor (a realistic flood barrier) so the distance-vs-risk trade-off
+  # is non-degenerate. Crossing risk is graded north→south (shallower to the south).
+  flood_corridor:
+    columns: [2, 3]
+    risk_north: 6.0
+    risk_south: 0.5

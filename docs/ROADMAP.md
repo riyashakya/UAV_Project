@@ -3,7 +3,7 @@
 At-a-glance tracker of the plan (phases from `TASK_PROMPTS.md`, weeks from `PROJECT_PLAN.md`).
 Legend: ✅ done · 🟡 partial · ⏳ next · ⬜ not started · ✂️ candidate to descope.
 
-_Last updated: 2026-07-21._
+_Last updated: 2026-07-28._
 
 | Phase | What | Week | Status |
 |---|---|---|---|
@@ -16,7 +16,7 @@ _Last updated: 2026-07-21._
 | 5 | Partitioning + coverage paths | 6 | ✅ done |
 | 6 | **Auction reallocation + 3 baselines** (core contribution) | 7–8 | ✅ done |
 | 7 | Flood survivor-drift prediction (most novel idea) | 10 | ✅ done |
-| 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ⏳ **next** |
+| 8 | Hazard-weighted rescue routing (Pareto fronts) | 11 | ✅ done |
 | 9 | Evaluation harness + Monte Carlo sweep (mean ± 95% CI) | 9 | ✅ done |
 | 10 | 3D reconstruction study (NeRF/3DGS vs photogrammetry) | 12 | ✂️ descope candidate |
 
@@ -55,6 +55,15 @@ _Last updated: 2026-07-21._
   uniform flow → exact v·Δt), containment grows with horizon, 90% polygon holds ≥90% + generalises.
   74 tests green. _Next micro-step: wire the containment cells into the auction priority to run
   the RQ4 experiment._
+- **Phase 8 (RQ6):** `routing/{graph,safe_path}.py` — hazard-weighted rescue routing. Segmentation
+  hazards fold into a road graph (`road_blocked` **removes** a cell's edges → provably
+  untraversable; `water`/`building_damaged` **raise** edge risk); edge weight = length·(1+λ·risk),
+  and sweeping λ traces the **Pareto front** of distance vs cumulative risk — a menu of routes, not
+  one arbitrary compromise. A geometrically-graded flood *corridor* makes that trade-off convex so
+  the λ-sweep recovers it (linear grading → collinear points → the front collapses, a documented
+  weighted-sum limitation). `make routes` → a 3-point trade-off menu for `flood_a` with the naive
+  shortest path pinned to the highest-risk corner. OSMnx builder is lazy + disk-cached (no live
+  network). 81 tests green. Stays decoupled (ADR-001): routing reads cached hazards, never YOLO.
 - **Phase 9 (the evidence):** `eval/{metrics,runner}.py`. `make sweep` = 1800 runs in ~4 s.
   **Headline (6 UAVs, coverage mean ± 95% CI): adaptive auction beats static partitioning by
   +12.4 pts under one failure and +25.5 pts under two** (100% vs 87.6/74.5%); random_walk matches

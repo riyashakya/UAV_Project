@@ -11,6 +11,34 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-28 — Phase 8: hazard-weighted rescue routing (Pareto fronts)
+
+- **Request:** start Phase 8 (last build phase).
+- **Summary:** implement `src/routing/graph.py` (road graph + apply detections: `road_blocked`
+  removes edges, `water`/`building_damaged` raise edge risk; OSMnx builder cached to disk for
+  real data) and `src/routing/safe_path.py` (edge weight = length·(1+λ·risk); sweep λ → Pareto
+  front of distance vs cumulative risk, with a naive shortest-path baseline + a matplotlib plot).
+- **Root cause / motivation:** RQ6 — rescue routes should trade distance for safety, not take
+  one arbitrary compromise; segmentation hazards feed the graph.
+- **Solution / why:** synthetic road lattice over the (synthetic-geo) grid keeps it offline +
+  testable; OSMnx path is lazy + disk-cached (CLAUDE.md non-goal: no live network at run time).
+  networkx already available (via scikit-image). Blocked edges are removed → provably untraversable.
+- **Files changed:** `src/routing/{graph,safe_path}.py`, `configs/routing/default.yaml`,
+  `tests/test_routing.py`, `pyproject.toml` (matplotlib), `Makefile` (routes target).
+- **Note on the demo scenario:** scattered point-detections on a dense grid don't constrain
+  routing (a free equal-length detour always exists), so the demo overlays a contiguous flood
+  *corridor* — a realistic barrier. Its crossing risk decays **geometrically** north→south
+  (`decay**row`), which makes the distance-vs-risk trade-off *convex* so a weighted-sum λ-sweep
+  recovers every crossing as a distinct Pareto vertex (a linear gradient makes the points
+  collinear and the front collapses to its two endpoints — a documented limitation of
+  weighted-sum scalarisation). Front points are deduped by trade-off point, not just by path.
+- **Status:** ✅ done. 7 routing tests green (81 total); acceptance holds — a blocked cell's
+  edges are removed so no route can traverse it, and the flood barrier yields a ≥5-point
+  non-dominated front on the 6×6 test grid. `make routes` writes a clean 3-point Pareto
+  trade-off menu for `flood_a` (1000 m/2400 risk → 1400 m/1810 → 2600 m/1401) with the naive
+  shortest path pinned to the highest-risk corner. Perception stays decoupled (ADR-001):
+  routing reads hazards from the cache, never the detector.
+
 ## 2026-07-22 — Phase 7: flood survivor-drift prediction (SAROPS-style, the novel piece)
 
 - **Request:** start Phase 7.

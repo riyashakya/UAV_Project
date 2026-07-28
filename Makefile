@@ -56,6 +56,9 @@ sim:  ## Phase 4: one simulation run, e.g. `make sim SCEN=flood_a SEED=0`
 sweep:  ## Phase 9: full Monte Carlo grid -> outputs/runs/<timestamp>/
 	$(UV) run python -m src.eval.runner
 
+routes:  ## Phase 8: hazard-weighted rescue-route Pareto front -> outputs/routing/
+	$(UV) run python -m src.routing.safe_path
+
 clean:  ## Remove tooling caches and build artifacts (never touches data/ or outputs/)
 	rm -rf .pytest_cache .ruff_cache dist build
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
