@@ -220,3 +220,12 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 Phases 0–2 (scaffold, dataset unification, perception training) predate this journal and are
 recorded in [`BUILD_LOG.md`](BUILD_LOG.md). Headline: both YOLO11 models trained —
 Model A (detect) mAP@50 0.674, Model B (segment) mask mAP@50 0.410.
+
+## 2026-07-28 — Two-slide progress deck for presentation
+
+- **Request:** progress report in two slides for a presentation.
+- **Summary:** built `docs/progress_slides.pptx` (python-pptx) — Slide 1: project + pipeline +
+  status; Slide 2: results (stat callouts + native auction-vs-static coverage chart) + novelty +
+  next. Content-QA clean; no local LibreOffice so no rendered preview.
+- **Files changed:** `docs/progress_slides.pptx` (new).
+- **Status:** ✅ done.
