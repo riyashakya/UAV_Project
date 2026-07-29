@@ -17,4 +17,9 @@ allocation:
   # Bid = travel*a + energy_penalty*b - priority*c (lowest bid wins). Scaled so travel (metres,
   # ~1e2-1e3) dominates, energy penalty (J, ~1e5) contributes mildly, priority (~1-15) breaks ties.
   bid_weights: { travel: 1.0, energy: 0.0005, priority: 50.0 }
-  priority_boost: 3.0          # multiply neighbour-cell priority when a person is detected
+  priority_boost: 3.0          # multiply target-cell priority when a person is detected
+  # RQ4: on a person detection, re-task toward the survivor's *drift* region (Phase 7) rather
+  # than the four grid-neighbours. Off by default so the Phase 6 baselines are unchanged.
+  drift_retask: false
+  drift_level: 0.9             # containment level whose cells receive the priority boost
+  # drift projection constants are taken from configs/drift/default.yaml (single source of truth)

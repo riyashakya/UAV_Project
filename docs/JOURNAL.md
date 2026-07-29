@@ -11,6 +11,58 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-30 — RQ4: close the perception → drift → coordination loop
+
+- **Request:** wire survivor-drift prediction (Phase 7) into the auction (Phase 6) so UAVs
+  re-task toward where a survivor has *drifted*, not the stale detection point.
+- **Summary:** on a `person` detection the auction currently boosts the four grid-neighbours of
+  the surveyed cell. Add an opt-in mode where, instead, it projects the survivor's drift with the
+  world flow field (`drift.advect.drift_search_region`), maps the containment polygon to cells
+  (`cells_in_region`), and boosts *those* cells' priority — so the lowest-bid rule pulls UAVs
+  downstream toward the drifting survivor.
+- **Root cause / motivation:** the standout novelty is the closed loop; until now drift and the
+  auction were built but never connected. RQ4 asks whether drift-aware re-tasking surveys the
+  survivor's new location sooner / more often than neighbour-boosting.
+- **Solution / why:** integration lives in `Coordinator` (both sides are CPU coordination-side;
+  drift only imports numpy+shapely, so ADR-001 still holds — no detector import). Drift uses the
+  Coordinator's **own** seeded `Generator`, so turning the mode on/off does **not** perturb the
+  engine's oracle-noise stream — the A/B differs only in re-tasking decisions, keeping the
+  comparison clean and runs reproducible. Off by default → all existing runs/tests unchanged.
+- **Files changed:** `src/coordination/allocation.py`, `src/sim/engine.py` (config + `--drift-retask`
+  CLI), `configs/coordination/default.yaml` (drift_retask block), `tests/test_allocation.py`
+  (3 drift-retask tests), `docs/`.
+- **Status:** ✅ integration done — 84 tests green (3 new: drift boosts only downstream/east cells,
+  differs from the neighbour boost, reproducible under seed). ADR-001 still holds (drift pulls in
+  only numpy+shapely, never the detector). Runnable via `make sim ... --drift-retask`; off by
+  default so Phase 6 baselines are byte-identical.
+- **Honest limitation (for the write-up, not hidden):** a *quantitative* RQ4 benefit can't be shown
+  on `flood_a`. Two reasons: (1) priority only influences the auction under **reallocation**
+  (a UAV death/RTH), and with 4 UAVs / 60 min the unconstrained mission reaches 100 % either way;
+  (2) the cache has ~389 `person` detections spread across nearly every cell — a *saturated* field,
+  not the single drifting survivor the drift model is for. A clean field experiment needs a
+  **sparse-survivor, resource-constrained scenario** and an **oracle that re-detects the survivor at
+  the drifted location** (today's oracle serves static per-cell detections). Flagged as the next
+  scenario-design step; the mechanism itself is proven by the analytic tests.
+
+## 2026-07-30 — Routing on a real OSM street network
+
+- **Request:** run the hazard-weighted routing (Phase 8) on a real street map, not the synthetic
+  lattice.
+- **Summary:** use the existing lazy, disk-cached `build_osm_road_graph` (OSMnx) to fetch a real
+  road network for a bbox once; convert the OSMnx `MultiDiGraph` to the simple weighted graph the
+  Pareto search expects (collapse parallel edges to min length, carry node x/y); apply a spatial
+  flood zone (raise risk on nodes inside a region) exactly as the synthetic corridor does; emit a
+  distance-vs-risk Pareto front + figure for the real network.
+- **Root cause / motivation:** shows the routing generalises off the toy grid — a stronger
+  write-up figure. `geo` extra (`osmnx>=1.9`) was already declared; installing it is a sync, and
+  it is a **one-time offline cache** step (CLAUDE.md non-goal is *live network at run time*).
+- **Solution / why:** conversion + spatial-hazard helpers in `src/routing/graph.py`; a
+  `routes-osm` demo in `safe_path.py` gated on the cache; a network-free test drives a synthetic
+  OSMnx-shaped `MultiDiGraph` so the graph logic is tested without hitting Overpass.
+- **Files changed:** `src/routing/graph.py`, `src/routing/safe_path.py`, `configs/routing/`,
+  `tests/test_routing.py`, `Makefile` (routes-osm), `docs/`.
+- **Status:** ⏳ in progress.
+
 ## 2026-07-28 — Phase 8: hazard-weighted rescue routing (Pareto fronts)
 
 - **Request:** start Phase 8 (last build phase).

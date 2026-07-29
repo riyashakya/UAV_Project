@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+import numpy as np
 from src.coordination.allocation import Coordinator
 from src.sim.engine import run
 from src.sim.uav import UAV, UAVParams
@@ -9,6 +12,15 @@ from src.sim.world import World
 
 # Big battery so energy never limits the run: the test isolates the *reallocation* logic.
 PARAMS = UAVParams(15.0, 200.0, 0.35, battery_capacity_j=5e7, rth_margin=1.3)
+
+
+@dataclass
+class _Det:  # a minimal detection exposing the `.cls` the coordinator reads
+    cls: str
+
+
+# A strong, purely eastward flood current: a survivor drifts east and nowhere else.
+_EAST_FLOW = {"n_particles": 300, "horizon_s": 600.0, "dt": 30.0, "leeway_factor": 1.0, "k_h": 0.5}
 
 
 def _run(strategy, fail_at=None, seed=0):
@@ -61,6 +73,52 @@ def test_bid_prefers_near_and_high_priority():
     bid_normal = coord._bid(near, 0)
     coord.priority[0] = 10.0
     assert coord._bid(near, 0) < bid_normal  # higher priority -> lower (more eager) bid
+
+
+def _drift_coord(seed=0):
+    # vx=1 m/s over 600 s ≈ 600 m ≈ 3 cells east of the source; tight spread keeps it on-grid.
+    world = World(rows=6, cols=6, cell_size_m=200.0, flow=lambda x, y: (1.0, 0.0))
+    return world, Coordinator(
+        "auction", world, 2, drift_retask=True, drift_params=_EAST_FLOW, drift_seed=seed
+    )
+
+
+def test_drift_retask_boosts_only_cells_downstream_of_the_survivor():
+    """RQ4: on a `person` detection, drift re-tasking boosts the cells the survivor drifts INTO
+    (east, with the current) — never cells upstream (west) of the detection."""
+    world, coord = _drift_coord()
+    src = 13  # row 2, col 1 — interior, with room to drift east
+    src_col = src % world.cols
+    before = coord.priority.copy()
+    coord.on_survey(uav=None, cell=src, detections=[_Det("person")])
+
+    boosted = [int(c) for c in np.flatnonzero(coord.priority > before)]
+    assert boosted, "a survivor detection must re-task at least one cell"
+    assert all(c % world.cols >= src_col for c in boosted)  # never upstream (west) of detection
+    assert any(c % world.cols > src_col for c in boosted)  # genuinely carried downstream (east)
+
+
+def test_drift_retask_differs_from_neighbour_boost():
+    """Drift mode targets downstream cells; the default neighbour boost includes the upstream
+    (west) neighbour — so the two modes re-task provably different cells."""
+    world, drift = _drift_coord()
+    plain = Coordinator("auction", world, 2)  # default neighbour-boost mode
+    src = 13
+    west_neighbour = src - 1
+
+    for coord in (drift, plain):
+        coord.on_survey(uav=None, cell=src, detections=[_Det("person")])
+
+    assert plain.priority[west_neighbour] > 1.0  # neighbour mode boosts the upstream cell
+    assert drift.priority[west_neighbour] == 1.0  # drift mode does not — the survivor went east
+
+
+def test_drift_retask_is_reproducible_under_seed():
+    """Same drift seed → identical re-tasking (its own RNG keeps runs deterministic)."""
+    (_, a), (_, b) = _drift_coord(seed=7), _drift_coord(seed=7)
+    a.on_survey(uav=None, cell=13, detections=[_Det("person")])
+    b.on_survey(uav=None, cell=13, detections=[_Det("person")])
+    assert np.array_equal(a.priority, b.priority)
 
 
 def test_unknown_strategy_raises():

@@ -7,8 +7,13 @@ assignment (ST-SR-IA) applied repeatedly online, i.e. a time-extended assignment
 **Reallocation triggers**
 1. A UAV hits its return-to-home threshold or dies and **abandons** its unfinished cells → those
    cells are auctioned to the still-flying UAVs (lowest bid wins).
-2. A **high-priority detection** (a `person`) upweights the surrounding cells, so they attract
-   stronger bids and are visited sooner.
+2. A **high-priority detection** (a `person`) upweights nearby cells, so they attract stronger
+   bids and are visited sooner. By default those are the four grid-neighbours; with
+   ``drift_retask`` on (RQ4) they are instead the cells under the survivor's **drift-search
+   region** — the flood current carries a survivor downstream, so the auction pulls UAVs toward
+   where they are *now*, not the stale detection point. Drift projection reuses Phase 7
+   (``drift.advect``) and draws from the Coordinator's own seeded generator, so toggling the mode
+   never perturbs the engine's oracle-noise stream.
 
 **Bid (a cost; lowest wins):** ``a·travel_cost + b·energy_penalty − c·cell_priority`` — a nearby
 UAV with plenty of energy bidding on a high-priority cell bids lowest. Weights come from config.
@@ -48,6 +53,10 @@ class Coordinator:
         bid_weights=(1.0, 0.0005, 50.0),
         priority_boost: float = 3.0,
         partition_tol: float = 0.05,
+        drift_retask: bool = False,
+        drift_params: dict | None = None,
+        drift_level: float = 0.9,
+        drift_seed: int = 0,
     ):
         if strategy not in STRATEGIES:
             raise ValueError(f"unknown strategy {strategy!r}; expected {STRATEGIES}")
@@ -56,6 +65,11 @@ class Coordinator:
         self.n_uavs = n_uavs
         self.a, self.b, self.c = bid_weights
         self.priority_boost = priority_boost
+        # RQ4: re-task toward the survivor's drift region instead of the grid-neighbours.
+        self.drift_retask = drift_retask
+        self.drift_params = dict(drift_params or {})
+        self.drift_level = drift_level
+        self._drift_rng = np.random.default_rng(drift_seed)  # own stream: A/B stays comparable
         self.priority = np.asarray(world.priority, dtype=float).copy()
         self.visited: set[int] = set()
         self.queues: dict[int, deque[int]] = {i: deque() for i in range(n_uavs)}
@@ -96,11 +110,14 @@ class Coordinator:
     # --- events -----------------------------------------------------------------------
     def on_survey(self, uav, cell: int, detections) -> None:
         self.visited.add(cell)
-        if self.strategy == "auction" and any(
-            getattr(d, "cls", None) == "person" for d in detections
-        ):
-            for nb in self._neighbors(cell):  # re-task toward survivors
-                self.priority[nb] *= self.priority_boost
+        if self.strategy != "auction":
+            return
+        if not any(getattr(d, "cls", None) == "person" for d in detections):
+            return
+        # Re-task toward the survivor: their drift region (RQ4) or the immediate neighbours.
+        targets = self._drift_cells(cell) if self.drift_retask else self._neighbors(cell)
+        for nb in targets:
+            self.priority[nb] *= self.priority_boost
 
     def on_abandon(self, dead_uav, uavs, current_target: int | None) -> list[int]:
         """A UAV abandoned its work. Return the cells reassigned (auction) or lost (baselines)."""
@@ -133,6 +150,22 @@ class Coordinator:
         travel = math.hypot(cx - uav.pos[0], cy - uav.pos[1])
         energy_penalty = uav.p.battery_capacity_j - uav.energy
         return self.a * travel + self.b * energy_penalty - self.c * float(self.priority[cell])
+
+    def _drift_cells(self, cell: int) -> list[int]:
+        """Cells under the survivor's drift-search region, projected from this cell's centre with
+        the world flow field (Phase 7). Falls back to the source cell if the region is degenerate
+        (e.g. no flow) so a survivor is never dropped."""
+        from src.drift.advect import cells_in_region, drift_search_region
+
+        region = drift_search_region(
+            self.world.cell_center(cell),
+            self.world.flow,
+            rng=self._drift_rng,
+            containment_levels=(self.drift_level,),
+            **self.drift_params,
+        )
+        cells = cells_in_region(region["containment"][self.drift_level], self.world)
+        return cells or [cell]
 
     def _neighbors(self, cell: int) -> list[int]:
         w, (r, c) = self.world, divmod(cell, self.world.cols)

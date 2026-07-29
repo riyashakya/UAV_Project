@@ -142,7 +142,13 @@ def main() -> None:
     parser.add_argument("--uav", default=str(REPO_ROOT / "configs/sim/uav.yaml"))
     parser.add_argument("--oracle", default=str(REPO_ROOT / "configs/sim/oracle.yaml"))
     parser.add_argument("--coord", default=str(REPO_ROOT / "configs/coordination/default.yaml"))
+    parser.add_argument("--drift", default=str(REPO_ROOT / "configs/drift/default.yaml"))
     parser.add_argument("--strategy", default=None, help="override allocation strategy")
+    parser.add_argument(
+        "--drift-retask",
+        action="store_true",
+        help="RQ4: re-task toward the survivor's drift region on a person detection",
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -161,12 +167,27 @@ def main() -> None:
     alloc = coord_cfg.allocation
     strategy = args.strategy or alloc.strategy
     bw = alloc.bid_weights
+    drift_retask = args.drift_retask or bool(alloc.get("drift_retask", False))
+    drift_params = {}
+    if drift_retask:  # single source of truth for the drift constants: configs/drift
+        d = OmegaConf.load(args.drift)
+        drift_params = {
+            "n_particles": int(d.n_particles),
+            "horizon_s": float(d.horizon_s),
+            "dt": float(d.timestep_s),
+            "leeway_factor": float(d.leeway_factor),
+            "k_h": float(d.k_h),
+        }
     coordinator = Coordinator(
         strategy,
         world,
         n_uavs,
         bid_weights=(float(bw.travel), float(bw.energy), float(bw.priority)),
         priority_boost=float(alloc.priority_boost),
+        drift_retask=drift_retask,
+        drift_params=drift_params,
+        drift_level=float(alloc.get("drift_level", 0.9)),
+        drift_seed=args.seed,
     )
 
     oracle = None
