@@ -59,9 +59,16 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 - **Solution / why:** conversion + spatial-hazard helpers in `src/routing/graph.py`; a
   `routes-osm` demo in `safe_path.py` gated on the cache; a network-free test drives a synthetic
   OSMnx-shaped `MultiDiGraph` so the graph logic is tested without hitting Overpass.
-- **Files changed:** `src/routing/graph.py`, `src/routing/safe_path.py`, `configs/routing/`,
-  `tests/test_routing.py`, `Makefile` (routes-osm), `docs/`.
-- **Status:** ⏳ in progress.
+- **Files changed:** `src/routing/graph.py` (osmnx 2.x bbox fix + `simple_graph_from_osmnx`,
+  `apply_flood_zone`, `nearest_node`), `src/routing/safe_path.py` (`main_osm` + `plot_osm_routes`),
+  `configs/routing/osm.yaml`, `tests/test_routing.py` (3 network-free OSM tests), `Makefile`
+  (`routes-osm`), `docs/datasets.md` (OSM/ODbL citation).
+- **Status:** ✅ done. `make routes-osm` fetched a real 219-node / 295-edge London street network
+  (cached once, then offline) and produced an **8-point** Pareto front: naive shortest **1141 m at
+  risk 3558** (through the flood) → safest **2367 m at risk 0** (detours west around it), plus a map
+  figure showing both routes. osmnx 1.x→2.x changed the bbox order (now `(west, south, east,
+  north)`) — fixed. 87 tests green; the 3 OSM graph tests run on a synthetic MultiDiGraph so CI
+  never touches Overpass.
 
 ## 2026-07-28 — Phase 8: hazard-weighted rescue routing (Pareto fronts)
 

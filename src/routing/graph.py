@@ -121,17 +121,76 @@ def detections_from_cache(parquet_path: Path, scenario: str) -> list[tuple[str, 
 
 def build_osm_road_graph(
     bbox_wgs84: tuple[float, float, float, float], cache_path: Path
-) -> nx.Graph:
-    """Real road graph from OSMnx for ``(north, south, east, west)``, cached to ``cache_path``.
+) -> nx.MultiDiGraph:
+    """Real road graph from OSMnx for ``bbox_wgs84 = (west, south, east, north)`` (OSMnx 2.x
+    order), cached to ``cache_path`` as GraphML.
 
-    Lazy-imports osmnx (the ``geo`` extra). Loads the cache if present so Overpass is hit once.
+    Lazy-imports osmnx (the ``geo`` extra). Loads the cache if present so the Overpass API is hit
+    at most once — a one-time *offline* build step, not live network at run time (CLAUDE.md).
+    Returns the raw OSMnx ``MultiDiGraph``; pass it through ``simple_graph_from_osmnx`` to get the
+    weighted graph the Pareto search expects.
     """
     cache_path = Path(cache_path)
     import osmnx as ox
 
     if cache_path.exists():
         return ox.load_graphml(cache_path)
-    graph = ox.graph_from_bbox(bbox=bbox_wgs84, network_type="drive")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
+    ox.settings.cache_folder = str(cache_path.parent)  # keep OSMnx's HTTP cache under data/
+    graph = ox.graph_from_bbox(bbox=bbox_wgs84, network_type="drive")
     ox.save_graphml(graph, cache_path)
     return graph
+
+
+def simple_graph_from_osmnx(g_osm) -> nx.Graph:
+    """Collapse an OSMnx ``MultiDiGraph`` to the simple, undirected, weighted graph the Pareto
+    search uses: one edge per node pair (the **shortest** of any parallel edges), each node's
+    WGS84 ``x``/``y`` (lon/lat) carried through, and ``risk`` initialised to 0.
+
+    OSMnx edges expose ``length`` in metres; GraphML round-trips it as a string, so it is coerced
+    to float. Directed/parallel edges (dual carriageways, ramps) collapse to their shortest span.
+    """
+    g = nx.Graph()
+    for n, data in g_osm.nodes(data=True):
+        g.add_node(n, x=float(data["x"]), y=float(data["y"]), risk=0.0)
+    for u, v, data in g_osm.edges(data=True):
+        length = float(data.get("length", 0.0))
+        if g.has_edge(u, v):
+            g[u][v]["length"] = min(g[u][v]["length"], length)
+        else:
+            g.add_edge(u, v, length=length, risk=0.0)
+    return g
+
+
+def apply_flood_zone(
+    graph: nx.Graph,
+    *,
+    lon_min: float,
+    lon_max: float,
+    lat_min: float,
+    lat_max: float,
+    risk_peak: float,
+) -> nx.Graph:
+    """Overlay a rectangular flooded zone (a WGS84 lon/lat box) on a real road graph: nodes inside
+    the box take ``risk_peak`` (keeping any higher risk already set, so nested zones grade the
+    barrier), then edge risk is recomputed as the mean of its endpoints. The spatial analogue of
+    ``apply_flood_corridor`` — call it twice (a wide shallow box, a narrow deep one) for a graded,
+    convex crossing so the λ-sweep recovers a multi-point front.
+    """
+    for n, data in graph.nodes(data=True):
+        if lon_min <= data["x"] <= lon_max and lat_min <= data["y"] <= lat_max:
+            graph.nodes[n]["risk"] = max(graph.nodes[n].get("risk", 0.0), risk_peak)
+    for u, v in graph.edges:
+        graph[u][v]["risk"] = 0.5 * (
+            graph.nodes[u].get("risk", 0.0) + graph.nodes[v].get("risk", 0.0)
+        )
+    return graph
+
+
+def nearest_node(graph: nx.Graph, lon: float, lat: float) -> int:
+    """The graph node closest to ``(lon, lat)`` by straight-line WGS84 distance (adequate over a
+    small bbox; no projection needed just to snap a source/target to the network)."""
+    return min(
+        graph.nodes,
+        key=lambda n: (graph.nodes[n]["x"] - lon) ** 2 + (graph.nodes[n]["y"] - lat) ** 2,
+    )

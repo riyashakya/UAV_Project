@@ -1,0 +1,26 @@
+# Hazard-weighted routing on a REAL OpenStreetMap street network (Phase 8, real-data demo).
+# The graph is fetched from OSMnx once and cached to disk (data/cache/osm/*.graphml); after that
+# the demo is fully offline (CLAUDE.md non-goal: no live network at run time).
+
+# Area of interest — WGS84 bbox as (west, south, east, north), OSMnx 2.x order.
+# Fitzrovia / Bloomsbury, central London: a dense drivable street grid ~1.2 x 1.1 km.
+area:
+  name: bloomsbury
+  bbox: [-0.142, 51.517, -0.125, 51.527]
+
+# Rescue endpoints (lon, lat) — snapped to the nearest street node.
+demo:
+  source: [-0.130, 51.526]     # base, north side
+  target: [-0.130, 51.518]     # survivor, south side (straight line runs through the flood)
+
+# A localised flood sitting over the EASTERN half of the area, so a route can either cross it
+# (short, risky) or detour west around it (longer, safe). Two nested boxes grade the barrier
+# (a shallow halo + a deep core) so the distance-vs-risk trade-off is convex and multi-point.
+flood_zones:
+  - { lon_min: -0.137, lon_max: -0.125, lat_min: 51.5195, lat_max: 51.5245, risk_peak: 2.0 }
+  - { lon_min: -0.134, lon_max: -0.125, lat_min: 51.5205, lat_max: 51.5235, risk_peak: 6.0 }
+
+# Pareto sweep: edge weight = length * (1 + lambda * risk); sweep lambda 0 (shortest) upward.
+pareto:
+  lambda_max: 5.0
+  n_lambda: 40

@@ -53,8 +53,11 @@ _Last updated: 2026-07-28._
   survivor (flow × leeway + turbulent diffusion) → 50/90% containment polygons; `cells_in_region`
   maps a polygon to grid cells for drift-driven re-tasking (RQ4). Analytic test (zero-diffusion
   uniform flow → exact v·Δt), containment grows with horizon, 90% polygon holds ≥90% + generalises.
-  74 tests green. _Next micro-step: wire the containment cells into the auction priority to run
-  the RQ4 experiment._
+  74 tests green. **RQ4 loop closed (2026-07-30):** `Coordinator(drift_retask=True)` projects the
+  survivor's drift and boosts the containment cells so the auction re-tasks UAVs downstream (its
+  own seeded RNG keeps the A/B clean; off by default). Proven by 3 analytic tests; a *quantitative*
+  field result needs a sparse-survivor, resource-constrained scenario + a re-detecting oracle (see
+  JOURNAL 2026-07-30).
 - **Phase 8 (RQ6):** `routing/{graph,safe_path}.py` — hazard-weighted rescue routing. Segmentation
   hazards fold into a road graph (`road_blocked` **removes** a cell's edges → provably
   untraversable; `water`/`building_damaged` **raise** edge risk); edge weight = length·(1+λ·risk),
@@ -62,8 +65,11 @@ _Last updated: 2026-07-28._
   one arbitrary compromise. A geometrically-graded flood *corridor* makes that trade-off convex so
   the λ-sweep recovers it (linear grading → collinear points → the front collapses, a documented
   weighted-sum limitation). `make routes` → a 3-point trade-off menu for `flood_a` with the naive
-  shortest path pinned to the highest-risk corner. OSMnx builder is lazy + disk-cached (no live
-  network). 81 tests green. Stays decoupled (ADR-001): routing reads cached hazards, never YOLO.
+  shortest path pinned to the highest-risk corner. **Also runs on a real OSM street network**
+  (`make routes-osm`, 2026-07-30): a cached 219-node London extract gives an 8-point front from
+  1141 m/risk 3558 (through the flood) to 2367 m/risk 0 (detour around it). OSMnx builder is lazy +
+  disk-cached (no live network at run time). 87 tests green. Stays decoupled (ADR-001): routing
+  reads cached hazards, never YOLO.
 - **Phase 9 (the evidence):** `eval/{metrics,runner}.py`. `make sweep` = 1800 runs in ~4 s.
   **Headline (6 UAVs, coverage mean ± 95% CI): adaptive auction beats static partitioning by
   +12.4 pts under one failure and +25.5 pts under two** (100% vs 87.6/74.5%); random_walk matches

@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import networkx as nx
 import numpy as np
-from src.routing.graph import apply_detections, apply_flood_corridor, road_graph_from_world
+from src.routing.graph import (
+    apply_detections,
+    apply_flood_corridor,
+    apply_flood_zone,
+    nearest_node,
+    road_graph_from_world,
+    simple_graph_from_osmnx,
+)
 from src.routing.safe_path import pareto_front, route_metrics, safe_path, shortest_path
 from src.sim.world import World
 
@@ -69,6 +76,45 @@ def test_route_metrics_sum_along_path():
     g = _tradeoff_graph()
     length, risk = route_metrics(g, ["s", "b", "t"])
     assert length == 6.0 and risk == 0.0
+
+
+def _osm_like():
+    """A tiny OSMnx-shaped MultiDiGraph: directed + parallel edges, GraphML-style string lengths,
+    WGS84 lon/lat on each node. Lets the real-map graph logic be tested without hitting Overpass."""
+    g = nx.MultiDiGraph()
+    g.add_node(1, x=-0.10, y=51.52)  # NW
+    g.add_node(2, x=-0.09, y=51.52)  # NE
+    g.add_node(3, x=-0.10, y=51.51)  # SW
+    g.add_node(4, x=-0.09, y=51.51)  # SE
+    g.add_edge(1, 2, length="100")  # string length, as GraphML round-trips it
+    g.add_edge(2, 1, length="100")  # reverse direction -> same undirected pair
+    g.add_edge(1, 2, length="80")  # a shorter parallel edge: this one should win
+    g.add_edge(1, 3, length="120")
+    g.add_edge(2, 4, length="120")
+    g.add_edge(3, 4, length="100")
+    return g
+
+
+def test_simple_graph_from_osmnx_collapses_parallel_edges():
+    g = simple_graph_from_osmnx(_osm_like())
+    assert not g.is_directed()
+    assert g.number_of_nodes() == 4
+    assert g[1][2]["length"] == 80.0  # shortest of the parallel 1<->2 spans, coerced to float
+    assert g.nodes[1]["x"] == -0.10 and g.nodes[1]["risk"] == 0.0
+
+
+def test_apply_flood_zone_raises_node_and_edge_risk():
+    g = simple_graph_from_osmnx(_osm_like())
+    # flood the northern row (lat 51.52) only -> nodes 1 and 2
+    apply_flood_zone(g, lon_min=-0.11, lon_max=-0.08, lat_min=51.515, lat_max=51.525, risk_peak=5.0)
+    assert g.nodes[1]["risk"] == 5.0 and g.nodes[3]["risk"] == 0.0
+    assert g[1][2]["risk"] == 5.0  # both endpoints flooded
+    assert g[1][3]["risk"] == 2.5  # one endpoint flooded -> mean of the two
+
+
+def test_nearest_node_snaps_to_closest():
+    g = simple_graph_from_osmnx(_osm_like())
+    assert nearest_node(g, -0.089, 51.509) == 4  # closest to the SE node
 
 
 def test_flood_corridor_gives_a_multipoint_pareto_front():

@@ -21,8 +21,12 @@ import networkx as nx
 from src.routing.graph import (
     apply_detections,
     apply_flood_corridor,
+    apply_flood_zone,
+    build_osm_road_graph,
     detections_from_cache,
+    nearest_node,
     road_graph_from_world,
+    simple_graph_from_osmnx,
 )
 from src.sim.world import World
 
@@ -114,6 +118,66 @@ def plot_pareto(front: list[dict], baseline: dict, out_path: Path) -> None:
     plt.close(fig)
 
 
+def plot_osm_routes(graph: nx.Graph, front: list[dict], baseline: dict, out_path: Path) -> None:
+    """Draw the real street network faintly, shade the flooded nodes, and overlay the naive
+    shortest path (red) and the safest Pareto route (blue)."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(6.6, 6.2))
+    for u, v in graph.edges:  # base network
+        ax.plot(
+            [graph.nodes[u]["x"], graph.nodes[v]["x"]],
+            [graph.nodes[u]["y"], graph.nodes[v]["y"]],
+            color="#C9D6E3",
+            lw=0.6,
+            zorder=1,
+        )
+    flooded = [n for n in graph.nodes if graph.nodes[n].get("risk", 0.0) > 0]
+    if flooded:
+        ax.scatter(
+            [graph.nodes[n]["x"] for n in flooded],
+            [graph.nodes[n]["y"] for n in flooded],
+            c=[graph.nodes[n]["risk"] for n in flooded],
+            cmap="Blues",
+            s=14,
+            zorder=2,
+            label="flooded (node risk)",
+        )
+
+    def _draw(path, color, label):
+        ax.plot(
+            [graph.nodes[n]["x"] for n in path],
+            [graph.nodes[n]["y"] for n in path],
+            color=color,
+            lw=2.6,
+            zorder=4,
+            label=label,
+        )
+
+    _draw(baseline["path"], "#B85042", "naive shortest path")
+    _draw(front[-1]["path"], "#1C7293", "safest route")
+    src, tgt = baseline["path"][0], baseline["path"][-1]
+    ax.scatter(
+        [graph.nodes[src]["x"], graph.nodes[tgt]["x"]],
+        [graph.nodes[src]["y"], graph.nodes[tgt]["y"]],
+        color="#0C3B6E",
+        s=60,
+        zorder=5,
+    )
+    ax.set_title("Rescue routing on a real street network")
+    ax.set_xlabel("longitude")
+    ax.set_ylabel("latitude")
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def _lambdas(lambda_max: float, n: int) -> list[float]:
     import numpy as np
 
@@ -167,5 +231,55 @@ def main() -> None:
     print(f"[routes] wrote {out_dir}/pareto.{{png,csv}}")
 
 
+def main_osm() -> None:
+    """Same Pareto routing, but on a REAL cached OSMnx street network (configs/routing/osm.yaml)."""
+    from omegaconf import OmegaConf
+
+    cfg = OmegaConf.load(REPO_ROOT / "configs/routing/osm.yaml")
+    bbox = tuple(float(v) for v in cfg.area.bbox)
+    cache = REPO_ROOT / "data" / "cache" / "osm" / f"{cfg.area.name}.graphml"
+    graph = simple_graph_from_osmnx(build_osm_road_graph(bbox, cache))
+    for z in cfg.flood_zones:
+        apply_flood_zone(
+            graph,
+            lon_min=float(z.lon_min),
+            lon_max=float(z.lon_max),
+            lat_min=float(z.lat_min),
+            lat_max=float(z.lat_max),
+            risk_peak=float(z.risk_peak),
+        )
+    src = nearest_node(graph, float(cfg.demo.source[0]), float(cfg.demo.source[1]))
+    tgt = nearest_node(graph, float(cfg.demo.target[0]), float(cfg.demo.target[1]))
+    lambdas = _lambdas(float(cfg.pareto.lambda_max), int(cfg.pareto.n_lambda))
+    front = pareto_front(graph, src, tgt, lambdas)
+    baseline = shortest_path(graph, src, tgt)
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = REPO_ROOT / "outputs" / "routing" / f"osm_{cfg.area.name}_{ts}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with open(out_dir / "pareto.csv", "w", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["lambda", "length_m", "risk_exposure", "n_hops"])
+        for r in front:
+            wr.writerow(
+                [f"{r['lambda']:.3f}", f"{r['length']:.1f}", f"{r['risk']:.1f}", len(r["path"]) - 1]
+            )
+    plot_pareto(front, baseline, out_dir / "pareto.png")
+    plot_osm_routes(graph, front, baseline, out_dir / "map.png")
+
+    print(
+        f"[routes-osm] area={cfg.area.name}  "
+        f"nodes={graph.number_of_nodes()} edges={graph.number_of_edges()}"
+    )
+    print(f"[routes-osm] {len(front)} non-dominated routes on the Pareto front")
+    print(
+        f"[routes-osm] shortest: {baseline['length']:.0f} m, risk {baseline['risk']:.1f}  |  "
+        f"safest: {front[-1]['length']:.0f} m, risk {front[-1]['risk']:.1f}"
+    )
+    print(f"[routes-osm] wrote {out_dir}/pareto.{{png,csv}} + map.png")
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    (main_osm if len(sys.argv) > 1 and sys.argv[1] == "osm" else main)()

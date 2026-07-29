@@ -59,6 +59,9 @@ sweep:  ## Phase 9: full Monte Carlo grid -> outputs/runs/<timestamp>/
 routes:  ## Phase 8: hazard-weighted rescue-route Pareto front -> outputs/routing/
 	$(UV) run python -m src.routing.safe_path
 
+routes-osm:  ## Phase 8: routing on a REAL OSM street network (needs `geo` extra) -> outputs/routing/
+	$(UV) run python -m src.routing.safe_path osm
+
 clean:  ## Remove tooling caches and build artifacts (never touches data/ or outputs/)
 	rm -rf .pytest_cache .ruff_cache dist build
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

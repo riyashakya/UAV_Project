@@ -189,6 +189,16 @@ evaluation chapter.
   the data lands, and correct the `native:` list if the on-disk palette differs (one-line fix,
   no code change).
 
+## OpenStreetMap road network (Phase 8, real-map routing)
+
+Not a labelled imagery dataset — the **road graph** for hazard-weighted routing on a real street
+network (`make routes-osm`). Fetched once via **OSMnx** for a small WGS84 bbox and cached to
+`data/cache/osm/<area>.graphml`; after that the demo is fully offline (CLAUDE.md non-goal: no live
+network at run time). The default area is a ~1.2 × 1.1 km extract of Fitzrovia/Bloomsbury, London.
+
+- **Licence:** OpenStreetMap data is © OpenStreetMap contributors, **ODbL 1.0**. Attribution is
+  required; the cached `.graphml` is not redistributed (gitignored under `data/`).
+
 ## Build
 
 ```bash
@@ -208,3 +218,6 @@ Output: two Ultralytics-style datasets under `data/unified/` — `detect/` (YOLO
   Natural Disaster Damage Assessment*, Scientific Data 10 — arXiv:2202.12361.
 - Rahnemoonfar et al. (2021), *FloodNet: A High Resolution Aerial Imagery Dataset for Post
   Flood Scene Understanding*, IEEE Access — arXiv:2012.02951.
+- OpenStreetMap contributors (road network, ODbL 1.0), accessed via Boeing (2017), *OSMnx: New
+  Methods for Acquiring, Constructing, Analyzing, and Visualizing Complex Street Networks*,
+  Computers, Environment and Urban Systems 65 — used for Phase 8 real-map routing.
