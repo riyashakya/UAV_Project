@@ -11,6 +11,29 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-30 — Demo ergonomics: a drift figure + a one-command walkthrough
+
+- **Request:** add `make drift` (draw the survivor's drift/containment on a map — drift had no
+  standalone figure, only re-tasking + tests) and `make demo` (run the CPU demo end-to-end). Noted
+  there is **no UI** — the whole project is CLI + static matplotlib/CSV output (CLAUDE.md non-goal:
+  no web dashboards), so the "demo" is a scripted command walkthrough that drops figures in outputs/.
+- **Summary:** `src/drift/visualize.py` builds the world + flow from configs, runs
+  `drift_search_region` for a configured survivor cell, and plots the particle cloud, the 50/90 %
+  containment polygons, the detection point → drifted centroid, and the grid cells the auction
+  would re-task toward (`cells_in_region`) → `outputs/drift/<ts>/drift.png`. `scripts/demo.sh`
+  runs mission → sweep → drift → RQ4 A/B → routes → routes-osm with headers and (by default) a
+  pause between steps.
+- **Solution / why:** viz is config-driven + seeded, lazy-imports matplotlib (Agg), and delegates
+  all maths to the already-tested Phase-7 functions, so there is no new untested logic (mirrors
+  `plot_pareto`/`plot_osm_routes`, which are I/O-only). `make demo PAUSE=0` runs straight through.
+- **Files changed:** `src/drift/visualize.py` (new), `configs/drift/default.yaml` (demo block),
+  `scripts/demo.sh` (new), `Makefile` (drift, demo targets), `docs/`.
+- **Status:** ✅ done. `make drift` → a figure with the detection point, eastward flow arrow, drift
+  cloud, 50/90 % containment, drifted centroid, and the two re-task cells (survivor in cell 13
+  drifts 541 m east over 30 min; 90 % ≈ 9.9 ha → cells [15, 16]). `make demo` (and `make demo
+  PAUSE=0`) runs mission → sweep → drift → RQ4 A/B → routes → routes-osm end-to-end in ~7 s and
+  prints where each figure landed. 87 tests green, lint clean.
+
 ## 2026-07-30 — RQ4: close the perception → drift → coordination loop
 
 - **Request:** wire survivor-drift prediction (Phase 7) into the auction (Phase 6) so UAVs

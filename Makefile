@@ -6,7 +6,9 @@
 UV ?= uv
 
 .PHONY: help setup setup-all test test-all lint fmt clean \
-        cache-dets sim sweep eval-perception build-datasets
+        cache-dets sim sweep drift routes routes-osm demo eval-perception build-datasets
+
+PAUSE ?= 1
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -56,11 +58,17 @@ sim:  ## Phase 4: one simulation run, e.g. `make sim SCEN=flood_a SEED=0`
 sweep:  ## Phase 9: full Monte Carlo grid -> outputs/runs/<timestamp>/
 	$(UV) run python -m src.eval.runner
 
+drift:  ## Phase 7: draw the survivor-drift projection + containment -> outputs/drift/<timestamp>/
+	$(UV) run python -m src.drift.visualize
+
 routes:  ## Phase 8: hazard-weighted rescue-route Pareto front -> outputs/routing/
 	$(UV) run python -m src.routing.safe_path
 
 routes-osm:  ## Phase 8: routing on a REAL OSM street network (needs `geo` extra) -> outputs/routing/
 	$(UV) run python -m src.routing.safe_path osm
+
+demo:  ## Run the whole CPU demo end-to-end (mission->sweep->drift->routing). PAUSE=0 for no pauses
+	UV="$(UV)" PAUSE="$(PAUSE)" bash scripts/demo.sh
 
 clean:  ## Remove tooling caches and build artifacts (never touches data/ or outputs/)
 	rm -rf .pytest_cache .ruff_cache dist build

@@ -8,3 +8,9 @@ leeway_factor: 1.0           # survivor speed relative to the water (≈1 for a 
                              # <1 if partially grounded/submerged) — SAROPS "leeway"
 k_h: 2.0                     # horizontal turbulent diffusivity (m^2/s); sets random spread
 containment_levels: [0.5, 0.9]   # probability-containment polygons to emit
+
+# Figure demo (`make drift`): where the survivor is first detected on the flood_a grid.
+demo:
+  survivor_cell: 13            # row 2, col 1 — mid-west, room to drift east across the AOI
+  seed: 0                      # Monte-Carlo seed (reproducible cloud)
+
