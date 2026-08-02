@@ -11,6 +11,27 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-02 — Interactive web mission visualiser (opt-in demo tool, ADR-003)
+
+- **Request:** a web application to visualise the project in a browser. Flagged first that CLAUDE.md
+  lists **"web dashboards"** as a non-goal; the user chose the live interactive app knowing it
+  deviates, so it is built as a **separate, scoped demo tool**, not part of the evaluated pipeline.
+- **Summary:** `webapp/server.py` — a **standard-library** HTTP server (no Flask, no new dependency)
+  that runs the existing engine on `/api/run?strategy=&seed=&fail=…&drift=` and returns the mission
+  as JSON; `webapp/index.html` animates it live on a canvas (grid, cells filling in, per-UAV trails,
+  a UAV failing to an X with a "reauctioned" banner, playback + scrub + speed, and a result panel:
+  coverage / survivors / cells-lost / per-UAV status). `make web` → http://127.0.0.1:8000.
+- **Guardrails (why the dissertation framing is safe):** written up as `docs/adr/ADR-003`. Lives
+  outside `src/`; produces **no** dissertation result (those still come from `make sweep`, offline +
+  seeded); stdlib-only; not in `make test`/`make demo`; localhost-bound; ADR-001 intact (imports
+  `src.sim`/`src.coordination`, reads cached detections, never the detector); deterministic.
+- **Verified:** backend returns correct JSON (auction+fail → 100 %/0 lost; static+fail → 83 %/6
+  lost); UI runs and animates live in a browser (checked in-pane), no console errors. Core 87 tests
+  still green — the engine's only change (the guarded `record_trajectory`) predates this.
+- **Files changed:** `webapp/{server.py,index.html}` (new), `docs/adr/ADR-003-web-demo-tool.md`
+  (new), `.claude/launch.json` (preview), `Makefile` (`web` target), `docs/JOURNAL.md`.
+- **Status:** ✅ done.
+
 ## 2026-07-30 — Visuals for the simulation: mission animation (GIF) + sweep results chart
 
 - **Request:** the sim itself had no picture (only a terminal summary + `events.json`); add a

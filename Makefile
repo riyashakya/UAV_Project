@@ -6,7 +6,7 @@
 UV ?= uv
 
 .PHONY: help setup setup-all test test-all lint fmt clean \
-        cache-dets sim sweep drift animate routes routes-osm demo eval-perception build-datasets
+        cache-dets sim sweep drift animate routes routes-osm demo web eval-perception build-datasets
 
 PAUSE ?= 1
 
@@ -72,6 +72,9 @@ routes-osm:  ## Phase 8: routing on a REAL OSM street network (needs `geo` extra
 
 demo:  ## Run the whole CPU demo end-to-end (mission->sweep->drift->routing). PAUSE=0 for no pauses
 	UV="$(UV)" PAUSE="$(PAUSE)" bash scripts/demo.sh
+
+web:  ## Opt-in browser mission visualiser (ADR-003, stdlib only) -> http://127.0.0.1:8000
+	$(UV) run python webapp/server.py
 
 clean:  ## Remove tooling caches and build artifacts (never touches data/ or outputs/)
 	rm -rf .pytest_cache .ruff_cache dist build

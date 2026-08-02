@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Multi-UAV Mission Visualiser</title>
+<style>
+  :root{
+    --blue:#1565C0; --blue-deep:#0C3B6E; --blue-tint:#E8F1FB; --tint2:#F3F8FD;
+    --ink:#132A3E; --muted:#5C7183; --line:#D6E3F0; --page:#EEF3F8; --card:#fff;
+    --good:#1E8E5A; --warn:#B57812; --danger:#C0392B;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--sans);background:var(--page);color:var(--ink)}
+  header{padding:16px 24px;background:var(--card);border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:19px;color:var(--blue-deep);letter-spacing:-.01em}
+  header p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+  .wrap{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:18px 24px;max-width:1180px}
+  @media(max-width:840px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .card h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--blue)}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:var(--blue-deep)}
+  label:first-of-type{margin-top:0}
+  input[type=number],select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    font:inherit;font-size:14px;color:var(--ink);background:#fff}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  .check{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--blue-deep);margin-top:14px}
+  .check input{width:16px;height:16px;accent-color:var(--blue)}
+  .subrow{margin-top:8px}
+  button.run{margin-top:18px;width:100%;padding:11px;border:none;border-radius:9px;background:var(--blue);
+    color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+  button.run:hover{background:#0E4E9E}button.run:disabled{opacity:.6;cursor:default}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.4}
+
+  .stage{display:flex;flex-direction:column;gap:14px}
+  .canvaswrap{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;position:relative}
+  canvas{width:100%;height:auto;display:block;border-radius:8px;background:#fff}
+  .banner{position:absolute;top:22px;left:50%;transform:translateX(-50%);background:var(--danger);
+    color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;display:none}
+  .controls{display:flex;align-items:center;gap:12px;margin-top:12px}
+  .controls button{width:40px;height:40px;border:1px solid var(--line);background:#fff;border-radius:9px;
+    cursor:pointer;font-size:16px;color:var(--blue-deep)}
+  .controls input[type=range]{flex:1;accent-color:var(--blue)}
+  .controls .t{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);min-width:132px;text-align:right}
+  .controls select{width:auto;padding:6px 8px}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .tile{background:var(--tint2);border:1px solid var(--line);border-radius:11px;padding:11px 12px}
+  .tile .n{font-size:22px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;line-height:1}
+  .tile .l{font-size:11px;color:var(--muted);margin-top:3px}
+  .uavs{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .uav{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--tint2);border:1px solid var(--line);
+    border-radius:999px;padding:3px 10px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .placeholder{color:var(--muted);font-size:13px;text-align:center;padding:40px 0}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Multi-UAV Disaster Response — Mission Visualiser</h1>
+  <p>Runs the real simulation engine on demand and animates the fleet live. Local demo tool (ADR-003).</p>
+</header>
+
+<div class="wrap">
+  <div class="card" id="panel">
+    <h2>Mission controls</h2>
+    <label for="strategy">Coordination strategy</label>
+    <select id="strategy">
+      <option value="auction">Adaptive auction (contribution)</option>
+      <option value="static_partition_no_realloc">Static partition (no re-plan)</option>
+      <option value="single_uav">Single UAV</option>
+      <option value="random_walk">Random walk</option>
+    </select>
+
+    <label for="seed">Random seed</label>
+    <input type="number" id="seed" value="0" min="0" step="1" />
+
+    <div class="check"><input type="checkbox" id="failOn" checked /><label for="failOn" style="margin:0">Simulate a UAV failure</label></div>
+    <div class="row subrow">
+      <div><label for="failUav">UAV #</label><input type="number" id="failUav" value="2" min="0" max="3" /></div>
+      <div><label for="failAt">at time (s)</label><input type="number" id="failAt" value="100" min="0" step="10" /></div>
+    </div>
+
+    <div class="check"><input type="checkbox" id="drift" /><label for="drift" style="margin:0">Drift-aware re-tasking (RQ4)</label></div>
+
+    <button class="run" id="run">Run simulation</button>
+    <p class="hint">Tip: run <b>Adaptive auction</b> vs <b>Static partition</b> with a failure on — watch static leave cells unsurveyed while the auction recovers.</p>
+  </div>
+
+  <div class="stage">
+    <div class="canvaswrap">
+      <div class="banner" id="banner">UAV failed → work reauctioned</div>
+      <canvas id="cv" width="640" height="640"></canvas>
+      <div class="controls">
+        <button id="play">▶</button>
+        <input type="range" id="scrub" min="0" max="0" value="0" />
+        <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+        <span class="t" id="clock">— </span>
+      </div>
+      <div class="legend">
+        <span><i class="sw" style="background:#D6ECDD"></i>surveyed</span>
+        <span><i class="sw" style="background:#B85042;border-radius:50%"></i>survivor</span>
+        <span><i class="sw" style="background:#111"></i>base</span>
+        <span>● UAV &nbsp; ✕ failed</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Result</h2>
+      <div id="result"><div class="placeholder">Set the controls and press <b>Run simulation</b>.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const UAV_COLORS = ["#1565C0","#2E9E6B","#E08A1E","#8E44AD","#0C7B93","#C0392B"];
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+let DATA=null, frame=0, playing=false, timer=null;
+
+const $ = id => document.getElementById(id);
+["failOn"].forEach(()=>$("failOn").addEventListener("change",()=>{
+  const on=$("failOn").checked; $("failUav").disabled=!on; $("failAt").disabled=!on;
+}));
+
+async function runSim(){
+  const btn=$("run"); btn.disabled=true; btn.textContent="Running…";
+  const q=new URLSearchParams({
+    strategy:$("strategy").value, seed:$("seed").value,
+    fail:$("failOn").checked?"1":"0", fail_uav:$("failUav").value, fail_at:$("failAt").value,
+    drift:$("drift").checked?"1":"0"
+  });
+  try{
+    const r=await fetch("/api/run?"+q.toString());
+    const d=await r.json();
+    if(d.error){ $("result").innerHTML='<div class="placeholder">Error: '+d.error+'</div>'; return; }
+    DATA=d; frame=0; $("scrub").max=d.trajectory.length-1; $("scrub").value=0;
+    renderStats(d); play(true);
+  }catch(e){ $("result").innerHTML='<div class="placeholder">Request failed: '+e+'</div>'; }
+  finally{ btn.disabled=false; btn.textContent="Run simulation"; }
+}
+
+function world2px(x,y){
+  const w=DATA.world, pad=18, W=cv.width, H=cv.height;
+  const ex=w.cols*w.cell_size, ey=w.rows*w.cell_size;
+  return [pad + x/ex*(W-2*pad), pad + y/ey*(H-2*pad)];
+}
+function cellRect(cid){
+  const w=DATA.world, r=Math.floor(cid/w.cols), c=cid%w.cols;
+  const [x0,y0]=world2px(c*w.cell_size, r*w.cell_size);
+  const [x1,y1]=world2px((c+1)*w.cell_size,(r+1)*w.cell_size);
+  return [x0,y0,x1-x0,y1-y0];
+}
+
+function draw(){
+  if(!DATA) return;
+  const w=DATA.world, snap=DATA.trajectory[frame], t=snap.t;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // grid
+  ctx.strokeStyle="#EAEFF4"; ctx.lineWidth=1;
+  for(let c=0;c<=w.cols;c++){const [x,y0]=world2px(c*w.cell_size,0);const [,y1]=world2px(0,w.rows*w.cell_size);ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y1);ctx.stroke();}
+  for(let r=0;r<=w.rows;r++){const [x0,y]=world2px(0,r*w.cell_size);const [x1,]=world2px(w.cols*w.cell_size,0);ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke();}
+  // surveyed cells
+  ctx.fillStyle="#D6ECDD";
+  for(const cid of snap.visited){const [x,y,ww,hh]=cellRect(cid);ctx.fillRect(x,y,ww,hh);}
+  // survivors revealed
+  ctx.fillStyle="rgba(184,80,66,0.55)";
+  for(const [cid,rt] of Object.entries(DATA.survivor_reveal)){
+    if(rt<=t){const [x,y,ww,hh]=cellRect(+cid);ctx.beginPath();ctx.arc(x+ww/2,y+hh/2,4,0,7);ctx.fill();}
+  }
+  // base
+  const [bx,by]=world2px(DATA.world.base_xy[0],DATA.world.base_xy[1]);
+  ctx.fillStyle="#111"; ctx.fillRect(bx-6,by-6,12,12);
+  // UAV trails + markers
+  for(let i=0;i<w.n_uavs;i++){
+    const col=UAV_COLORS[i%UAV_COLORS.length];
+    ctx.strokeStyle=col; ctx.globalAlpha=.55; ctx.lineWidth=2; ctx.beginPath();
+    for(let j=0;j<=frame;j++){const u=DATA.trajectory[j].uavs[i];const [px,py]=world2px(u[0],u[1]);j?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+    ctx.stroke(); ctx.globalAlpha=1;
+    const u=snap.uavs[i], [px,py]=world2px(u[0],u[1]), st=u[2];
+    ctx.fillStyle=col; ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+    if(st==="dead"){ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(px-7,py-7);ctx.lineTo(px+7,py+7);ctx.moveTo(px+7,py-7);ctx.lineTo(px-7,py+7);ctx.strokeStyle=col;ctx.stroke();}
+    else if(st==="landed"){ctx.fillRect(px-6,py-6,12,12);ctx.strokeRect(px-6,py-6,12,12);}
+    else {ctx.beginPath();ctx.arc(px,py,8,0,7);ctx.fill();ctx.stroke();}
+  }
+  // HUD
+  const fail=DATA.params.fail;
+  document.getElementById("banner").style.display = (fail && t>=fail.t) ? "block":"none";
+  if(fail) document.getElementById("banner").textContent = "UAV-"+fail.uav+" failed → work reauctioned";
+  $("clock").textContent = "t="+(t/60).toFixed(1)+" min · "+snap.visited.length+"/"+w.n_cells;
+  $("scrub").value=frame;
+}
+
+function tick(){ if(frame<DATA.trajectory.length-1){frame++; draw();} else play(false); }
+function play(on){
+  playing=on; $("play").textContent=on?"❚❚":"▶";
+  if(timer){clearInterval(timer);timer=null;}
+  if(on){ if(frame>=DATA.trajectory.length-1) frame=0;
+    const fps=8*parseFloat($("speed").value); timer=setInterval(tick,1000/fps); }
+}
+$("play").addEventListener("click",()=>{ if(DATA) play(!playing); });
+$("scrub").addEventListener("input",e=>{ if(DATA){play(false); frame=+e.target.value; draw();} });
+$("speed").addEventListener("change",()=>{ if(playing) play(true); });
+$("run").addEventListener("click",runSim);
+
+function badge(status){
+  const c={cruising:"#1565C0",idle:"#7FB3D5",returning:"#E08A1E",landed:"#1E8E5A",dead:"#C0392B"}[status]||"#888";
+  return '<span class="dot" style="background:'+c+'"></span>';
+}
+function renderStats(d){
+  const found=d.found||{}, cov=Math.round(d.coverage*100);
+  const uavs=Object.entries(d.uav_end).map(([id,u])=>'<span class="uav">'+badge(u.status)+' UAV-'+id+' · '+u.status+'</span>').join("");
+  $("result").innerHTML =
+    '<div class="stats">'+
+      '<div class="tile"><div class="n">'+cov+'%</div><div class="l">area covered</div></div>'+
+      '<div class="tile"><div class="n">'+(found.person||0)+'</div><div class="l">survivors found</div></div>'+
+      '<div class="tile"><div class="n">'+d.lost_cells.length+'</div><div class="l">cells lost</div></div>'+
+      '<div class="tile"><div class="n">'+d.world.n_uavs+'</div><div class="l">UAVs</div></div>'+
+    '</div><div class="uavs">'+uavs+'</div>';
+}
+</script>
+</body>
+</html>
