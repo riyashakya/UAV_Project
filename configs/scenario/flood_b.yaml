@@ -1,0 +1,31 @@
+# Scenario flood_b — a HEAVY-flood variant for the demo (web app scenario dropdown).
+#
+# Honesty note: this reuses flood_a's REAL perception detections (same survivors, same YOLO
+# confidences — see detections_scenario below); it is NOT a second perception run. What differs is
+# the *hazard configuration*: a strong, contiguous flood corridor (a barrier, not scattered water)
+# and a stronger current. That makes the fastest route cross the flood while the safest detours,
+# and makes survivor drift more pronounced. The flood corridor is an illustrative structure, marked
+# synthetic — exactly like the routing demo's `apply_flood_corridor`. The dissertation's evaluation
+# uses flood_a (real detections); flood_b is a demonstration scenario only.
+
+name: flood_b
+grid: { rows: 6, cols: 6 }     # must match flood_a's grid to reuse its detections
+cell_size_m: 200
+origin_wgs84: { lat: 29.75, lon: -95.36 }
+synthetic_geo: true
+
+detections_scenario: flood_a   # serve flood_a's real cached detections under this scenario
+
+# Stronger current than flood_a's gentle 0.3 m/s eastward drift → a larger drift search zone.
+flow:
+  type: channel                # unidirectional east, parabolic across the channel axis
+  vmax: 0.4                     # peak current (m/s) — strong drift, but keeps the zone on-grid
+  axis_y: 600                  # channel centreline (m south) — mid-grid
+  half_width: 700              # taper half-width (m)
+
+# Illustrative heavy flood: a contiguous corridor across columns 2–3, risk graded high→low
+# north→south, so the safest crossing is a southern detour (fastest vs safest genuinely diverge).
+flood_overlay:
+  columns: [2, 3]
+  risk_north: 8.0
+  risk_south: 1.0

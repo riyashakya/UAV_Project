@@ -45,7 +45,16 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
   cell* (reuses Phase 7 + Phase 8). Honest note surfaced in the UI: on `flood_a` the water is sparse
   so fastest == safest for that route ("already the safest here"). Clarified that UAVs are
   autonomously coordinated — you set the *count*, the auction decides positions; manual steering
-  would defeat the contribution. Core 87 tests still green.
+  would defeat the contribution.
+  (4) **Second scenario + dropdown.** `configs/scenario/flood_b.yaml` — a heavy-flood demo variant
+  that **reuses flood_a's real detections** (`detections_scenario: flood_a`; same survivors + YOLO
+  confidences — not a second perception run) but adds a **contiguous flood barrier** (`flood_overlay`)
+  and a **stronger channel current**. Result: fastest vs safest routes now genuinely **diverge**
+  (1400 m/risk 1947 through the flood vs 2200 m/risk 1356 around it) and drift is larger (target
+  cell 17 vs 16). Server takes a `scenario` param, overlays the barrier in routing, honours the
+  detection-source pointer, and merges a scenario flow override into the world; `/api/meta` lists
+  scenarios; UI gets a scenario dropdown. Clearly labelled illustrative — the dissertation's
+  evaluation still uses flood_a (real detections). Core 87 tests still green.
 
 ## 2026-07-30 — Visuals for the simulation: mission animation (GIF) + sweep results chart
 

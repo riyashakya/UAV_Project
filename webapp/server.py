@@ -62,12 +62,18 @@ def _survivors(detections) -> dict:
     return {"total": total, "mean_conf": mean_conf, "cells": cells}
 
 
-def _response_plan(world, focus_cell: int, scenario_name: str, seed: int) -> dict:
+def _response_plan(world, focus_cell, det_scenario, seed, flood_overlay=None) -> dict:
     """Perception → drift → routing for the top survivor: project their drift probability zones,
-    then route from base to where they are predicted to drift (not the stale detection cell)."""
+    then route from base to where they are predicted to drift (not the stale detection cell).
+    ``flood_overlay`` overlays a contiguous flood barrier so fastest and safest diverge."""
     import numpy as np
     from src.drift.advect import drift_search_region
-    from src.routing.graph import apply_detections, detections_from_cache, road_graph_from_world
+    from src.routing.graph import (
+        apply_detections,
+        apply_flood_corridor,
+        detections_from_cache,
+        road_graph_from_world,
+    )
     from src.routing.safe_path import pareto_front
 
     d = OmegaConf.load(REPO_ROOT / "configs/drift/default.yaml")
@@ -106,7 +112,15 @@ def _response_plan(world, focus_cell: int, scenario_name: str, seed: int) -> dic
     g = road_graph_from_world(world)
     cache = REPO_ROOT / "data" / "cache" / "detections.parquet"
     if cache.exists():
-        apply_detections(g, detections_from_cache(cache, scenario_name))
+        apply_detections(g, detections_from_cache(cache, det_scenario))
+    if flood_overlay is not None:  # heavy-flood variant: a graded barrier so routes diverge
+        apply_flood_corridor(
+            g,
+            world,
+            columns=list(flood_overlay["columns"]),
+            risk_north=float(flood_overlay["risk_north"]),
+            risk_south=float(flood_overlay["risk_south"]),
+        )
     routes = None
     base = 0
     if target_cell != base and g.has_node(target_cell):
@@ -131,14 +145,25 @@ def _response_plan(world, focus_cell: int, scenario_name: str, seed: int) -> dic
     }
 
 
-def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) -> dict:
+def _scenario_names() -> list[str]:
+    return sorted(p.stem for p in (REPO_ROOT / "configs/scenario").glob("*.yaml"))
+
+
+def simulate(
+    *, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None, scenario="flood_a"
+) -> dict:
     """Run one mission with the given controls; return everything the browser needs to draw it."""
-    scenario = OmegaConf.load(REPO_ROOT / "configs/scenario/flood_a.yaml")
+    if scenario not in _scenario_names():
+        scenario = "flood_a"
+    scen = OmegaConf.load(REPO_ROOT / f"configs/scenario/{scenario}.yaml")
     world_cfg = OmegaConf.load(REPO_ROOT / "configs/sim/world.yaml")
     uav_cfg = OmegaConf.load(REPO_ROOT / "configs/sim/uav.yaml")
     coord_cfg = OmegaConf.load(REPO_ROOT / "configs/coordination/default.yaml")
 
-    world = World.from_configs(scenario, world_cfg)
+    # a scenario may override the flow field (World reads flow from the world config)
+    if scen.get("flow") is not None:
+        world_cfg = OmegaConf.merge(world_cfg, {"flow": scen.flow})
+    world = World.from_configs(scen, world_cfg)
     params = UAVParams.from_cfg(uav_cfg)
     if n_uavs is None:
         n_uavs = int(world_cfg.get("n_uavs", 4))
@@ -168,6 +193,8 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) ->
         drift_seed=int(seed),
     )
 
+    # a variant scenario may reuse another scenario's real cached detections
+    det_scenario = str(scen.get("detections_scenario", scen.name))
     oracle = None
     cache = REPO_ROOT / "data" / "cache" / "detections.parquet"
     if cache.exists():
@@ -176,7 +203,7 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) ->
         ocfg = OmegaConf.load(REPO_ROOT / "configs/sim/oracle.yaml")
         oracle = Oracle(
             cache,
-            scenario.name,
+            det_scenario,
             false_negative_rate=dict(ocfg.false_negative_rate),
             latency_s=tuple(ocfg.latency_s),
         )
@@ -194,9 +221,12 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) ->
         record_trajectory=True,
         record_detections=True,
     )
+    flood_overlay = scen.get("flood_overlay")
+    if flood_overlay is not None:
+        flood_overlay = OmegaConf.to_container(flood_overlay, resolve=True)
     survivors = _survivors(result.get("detections", []))
     plan = (
-        _response_plan(world, survivors["cells"][0]["cell"], scenario.name, seed)
+        _response_plan(world, survivors["cells"][0]["cell"], det_scenario, seed, flood_overlay)
         if survivors["cells"]
         else None
     )
@@ -204,6 +234,7 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) ->
         "params": {
             "seed": int(seed),
             "strategy": strategy,
+            "scenario": scen.name,
             "drift_retask": bool(drift_retask),
             "fail": ({"uav": int(fail_uav), "t": float(fail_at)} if fail_map else None),
         },
@@ -242,7 +273,9 @@ class Handler(BaseHTTPRequestHandler):
         if route.path in ("/", "/index.html"):
             self._send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
         elif route.path == "/api/meta":
-            body = json.dumps({"strategies": list(STRATEGIES)}).encode()
+            body = json.dumps(
+                {"strategies": list(STRATEGIES), "scenarios": _scenario_names()}
+            ).encode()
             self._send(200, body, "application/json")
         elif route.path == "/api/run":
             self._run(parse_qs(route.query))
@@ -255,6 +288,7 @@ class Handler(BaseHTTPRequestHandler):
             out = simulate(
                 seed=int(q.get("seed", ["0"])[0]),
                 strategy=q.get("strategy", ["auction"])[0],
+                scenario=q.get("scenario", ["flood_a"])[0],
                 n_uavs=int(q.get("n_uavs", ["4"])[0]),
                 fail_uav=int(q.get("fail_uav", ["2"])[0]),
                 fail_at=(float(q.get("fail_at", ["100"])[0]) if fail_on else None),
