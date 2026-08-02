@@ -65,6 +65,8 @@
   <p>Runs the real simulation engine on demand and animates the fleet live. Local demo tool (ADR-003).</p>
 </header>
 
+<div id="status" style="display:none;margin:0;padding:11px 24px;background:#FBE9E7;color:#9A2A1E;font-size:13px;font-weight:600;border-bottom:1px solid #F3C0B8"></div>
+
 <div class="wrap">
   <div class="card" id="panel">
     <h2>Mission controls</h2>
@@ -78,6 +80,7 @@
 
     <label for="seed">Random seed</label>
     <input type="number" id="seed" value="0" min="0" step="1" />
+    <p class="hint" style="margin-top:6px">Changes only the random noise (missed detections; random-walk paths). The disaster map (scenario <b>flood_a</b>) stays the same — for auction/static the flight paths won't visibly change.</p>
 
     <div class="check"><input type="checkbox" id="failOn" checked /><label for="failOn" style="margin:0">Simulate a UAV failure</label></div>
     <div class="row subrow">
@@ -122,12 +125,19 @@ const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let DATA=null, frame=0, playing=false, timer=null;
 
 const $ = id => document.getElementById(id);
-["failOn"].forEach(()=>$("failOn").addEventListener("change",()=>{
+const SERVER_MSG = "⚠ Not connected to the simulation server. In the project folder run  make web  then open  http://127.0.0.1:8000  in your browser — opening the HTML file directly (file://) will not work, because the button needs the running server.";
+function showStatus(msg){ const s=$("status"); s.textContent=msg; s.style.display="block"; }
+function clearStatus(){ $("status").style.display="none"; }
+
+$("failOn").addEventListener("change",()=>{
   const on=$("failOn").checked; $("failUav").disabled=!on; $("failAt").disabled=!on;
-}));
+});
+
+// On load, confirm we're actually served by the server (not opened as a file).
+fetch("/api/meta").then(r=>{ if(!r.ok) throw 0; clearStatus(); }).catch(()=>showStatus(SERVER_MSG));
 
 async function runSim(){
-  const btn=$("run"); btn.disabled=true; btn.textContent="Running…";
+  const btn=$("run"); btn.disabled=true; btn.textContent="Running…"; clearStatus();
   const q=new URLSearchParams({
     strategy:$("strategy").value, seed:$("seed").value,
     fail:$("failOn").checked?"1":"0", fail_uav:$("failUav").value, fail_at:$("failAt").value,
@@ -136,10 +146,10 @@ async function runSim(){
   try{
     const r=await fetch("/api/run?"+q.toString());
     const d=await r.json();
-    if(d.error){ $("result").innerHTML='<div class="placeholder">Error: '+d.error+'</div>'; return; }
+    if(d.error){ showStatus("Simulation error: "+d.error); return; }
     DATA=d; frame=0; $("scrub").max=d.trajectory.length-1; $("scrub").value=0;
     renderStats(d); play(true);
-  }catch(e){ $("result").innerHTML='<div class="placeholder">Request failed: '+e+'</div>'; }
+  }catch(e){ showStatus(SERVER_MSG); }
   finally{ btn.disabled=false; btn.textContent="Run simulation"; }
 }
 
