@@ -1,0 +1,11 @@
+# Mission animation (`make animate`). A scripted mid-mission failure makes the auction's
+# reallocation visible in the GIF. No magic numbers in src/ — the demo constants live here.
+
+seed: 0
+strategy: auction            # auction | static_partition_no_realloc | single_uav | random_walk
+fail_uav: 2                  # this UAV's battery dies mid-mission...
+fail_at_s: 100               # ...100 s in (the 4-UAV survey finishes ~300 s), so UAV-2 still has
+                             # unfinished cells that the others must pick up — the reallocation moment
+
+fps: 8                       # GIF frames per second
+stride: 2                    # render every 2nd timestep (dt=5 s -> a frame every 10 s) for a smooth GIF

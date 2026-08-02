@@ -6,7 +6,7 @@
 UV ?= uv
 
 .PHONY: help setup setup-all test test-all lint fmt clean \
-        cache-dets sim sweep drift routes routes-osm demo eval-perception build-datasets
+        cache-dets sim sweep drift animate routes routes-osm demo eval-perception build-datasets
 
 PAUSE ?= 1
 
@@ -60,6 +60,9 @@ sweep:  ## Phase 9: full Monte Carlo grid -> outputs/runs/<timestamp>/
 
 drift:  ## Phase 7: draw the survivor-drift projection + containment -> outputs/drift/<timestamp>/
 	$(UV) run python -m src.drift.visualize
+
+animate:  ## Phase 6: GIF of the mission (UAVs, coverage, a failure + reallocation) -> outputs/runs/
+	$(UV) run python -m src.sim.animate
 
 routes:  ## Phase 8: hazard-weighted rescue-route Pareto front -> outputs/routing/
 	$(UV) run python -m src.routing.safe_path

@@ -11,6 +11,32 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-07-30 — Visuals for the simulation: mission animation (GIF) + sweep results chart
+
+- **Request:** the sim itself had no picture (only a terminal summary + `events.json`); add a
+  **mission animation** (GIF of the UAVs flying, cells filling in, a failure + reallocation live)
+  and a **sweep results chart** (adaptive vs baselines, coverage under 0/1/2 failures, 95 % CI bars).
+- **Summary:** (1) `run(..., record_trajectory=True)` appends a per-timestep snapshot (each UAV's
+  x/y/status + the surveyed-cell set) to the result — guarded, so normal runs are unchanged.
+  `src/sim/animate.py` reruns a scripted-failure mission with that flag and renders a GIF
+  (matplotlib `PillowWriter`, no extra dep): grid, surveyed cells shaded, UAVs coloured by status,
+  survivor stars revealed as cells are surveyed, and a "UAV-k failed" caption at the failure.
+  (2) `plot_sweep(summary, out_dir)` in the runner draws a grouped bar chart from `summary.csv` at
+  the largest UAV count → `results.png`, written automatically by `make sweep`.
+- **Solution / why:** both are config-driven + seeded, lazy-import matplotlib (Agg), and reuse the
+  tested engine/metrics (no new coordination logic). Failure time/UAV for the animation live in a
+  config (no magic numbers). Still CLI + static-file output — the GIF is a file, not a UI.
+- **Files changed:** `src/sim/engine.py` (record_trajectory), `src/sim/animate.py` (new),
+  `src/eval/runner.py` (plot_sweep), `configs/viz/mission.yaml` (new), `Makefile` (animate target),
+  `docs/`.
+- **Status:** ✅ done. `make animate` → `mission.gif` (27 frames, ~0.2 MB): survey fills in from
+  1→36 cells over ~4 min, UAV-2 fails at 100 s (17/36 covered) and its cells are reauctioned so the
+  fleet still finishes 100 %. `make sweep` now also writes `results.png` — grouped bars of coverage
+  under 0/1/2 failures per strategy with 95 % CI, showing static partition collapse to ~88 %/~74 %
+  while the auction holds 100 %. Tuning notes: failure fired early (the 4-UAV survey finishes ~300 s,
+  so a 600 s failure never triggered) and the GIF tail is trimmed to a few frames past full coverage.
+  87 tests green (record_trajectory is guarded → existing engine runs unchanged).
+
 ## 2026-07-30 — Demo ergonomics: a drift figure + a one-command walkthrough
 
 - **Request:** add `make drift` (draw the survivor's drift/containment on a map — drift had no

@@ -128,6 +128,66 @@ def _aggregate(tidy: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+_STRATEGY_STYLE = {  # label -> (display name, bar colour)
+    "auction": ("Adaptive auction", "#1565C0"),
+    "auction_no_priority": ("Auction (no priority)", "#5B9BD5"),
+    "static_partition_no_realloc": ("Static partition", "#B85042"),
+    "single_uav": ("Single UAV", "#8C8C8C"),
+    "random_walk": ("Random walk", "#C8A31A"),
+}
+_CONDITION_LABEL = {"none": "no failure", "one_fail": "1 failure", "two_fail": "2 failures"}
+
+
+def plot_sweep(summary: pd.DataFrame, out_path: Path) -> None:
+    """Grouped bar chart of coverage (mean ± 95% CI) by failure condition, one bar per strategy,
+    at the largest UAV count — the visual form of the headline table."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    n_uavs = int(summary["n_uavs"].max())
+    conditions = [c for c in ("none", "one_fail", "two_fail") if c in set(summary.condition)]
+    strategies = [s for s in _STRATEGY_STYLE if s in set(summary.strategy)]
+    x = np.arange(len(conditions))
+    width = 0.8 / max(1, len(strategies))
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+    for i, strat in enumerate(strategies):
+        means, cis = [], []
+        for cond in conditions:
+            row = summary[
+                (summary.n_uavs == n_uavs)
+                & (summary.condition == cond)
+                & (summary.strategy == strat)
+            ]
+            means.append(float(row.coverage_mean.iloc[0]) * 100 if not row.empty else 0.0)
+            cis.append(float(row.coverage_ci95.iloc[0]) * 100 if not row.empty else 0.0)
+        name, colour = _STRATEGY_STYLE[strat]
+        ax.bar(
+            x + (i - (len(strategies) - 1) / 2) * width,
+            means,
+            width,
+            yerr=cis,
+            capsize=3,
+            color=colour,
+            label=name,
+            error_kw={"elinewidth": 1, "ecolor": "#333333"},
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([_CONDITION_LABEL[c] for c in conditions])
+    ax.set_ylabel("Area covered (%)")
+    ax.set_ylim(0, 105)
+    ax.set_title(f"Coverage under UAV failure ({n_uavs} UAVs, mean ± 95% CI)")
+    ax.legend(fontsize=8, ncol=2, loc="lower left")
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def _headline(summary: pd.DataFrame) -> str:
     """Auction vs static coverage under each failure condition (at the largest UAV count)."""
     lines = ["\nHEADLINE — coverage (mean ± 95% CI), auction vs static partitioning:"]
@@ -194,9 +254,10 @@ def main() -> None:
     OmegaConf.save(cfg, out_dir / "resolved_config.yaml")
     headline = _headline(summary)
     (out_dir / "headline.txt").write_text(headline + "\n")
+    plot_sweep(summary, out_dir / "results.png")
 
     print(headline)
-    print(f"\n[sweep] {len(tidy)} runs -> {out_dir}/sweep.parquet + summary.csv")
+    print(f"\n[sweep] {len(tidy)} runs -> {out_dir}/sweep.parquet + summary.csv + results.png")
 
 
 if __name__ == "__main__":

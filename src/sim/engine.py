@@ -44,8 +44,10 @@ def run(
     dt: float,
     oracle=None,
     fail_at: dict[int, float] | None = None,
+    record_trajectory: bool = False,
 ) -> dict:
-    """Run the simulation. ``fail_at`` maps uav_id -> time (s) to force a mid-mission failure."""
+    """Run the simulation. ``fail_at`` maps uav_id -> time (s) to force a mid-mission failure.
+    ``record_trajectory`` (off by default) appends a per-timestep snapshot for the animation."""
     if coordinator is None:  # backward-compatible: wrap a static plan
         from src.coordination.allocation import Coordinator
 
@@ -55,6 +57,7 @@ def run(
     current_cell = {u.id: None for u in uavs}
     found_total: dict[str, int] = {}
     events: list[dict] = []
+    trajectory: list[dict] = []
     n_steps = int(round(duration_s / dt))
 
     def rec(u, kind, t, **extra):
@@ -116,11 +119,22 @@ def run(
                 else:
                     rec(u, kind, t)
 
+        if record_trajectory:
+            trajectory.append(
+                {
+                    "t": t,
+                    "uavs": [
+                        (round(u.pos[0], 2), round(u.pos[1], 2), u.status.value) for u in uavs
+                    ],
+                    "visited": sorted(coordinator.visited),
+                }
+            )
+
         if all(u.status in (Status.LANDED, Status.DEAD) for u in uavs):
             break
 
     surveyed = sorted(coordinator.visited)
-    return {
+    result = {
         "events": events,
         "surveyed": surveyed,
         "coverage": round(len(surveyed) / world.n_cells, 4),
@@ -128,6 +142,9 @@ def run(
         "found_total": dict(sorted(found_total.items())),
         "lost_cells": sorted(coordinator.pool),
     }
+    if record_trajectory:
+        result["trajectory"] = trajectory
+    return result
 
 
 def _resolve(p: str) -> Path:
