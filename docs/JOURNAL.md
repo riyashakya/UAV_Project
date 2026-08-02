@@ -31,6 +31,12 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 - **Files changed:** `webapp/{server.py,index.html}` (new), `docs/adr/ADR-003-web-demo-tool.md`
   (new), `.claude/launch.json` (preview), `Makefile` (`web` target), `docs/JOURNAL.md`.
 - **Status:** ✅ done.
+- **Follow-ups:** (1) UI now shows a banner if opened as a file / server unreachable, plus a
+  seed-vs-scenario note (the seed changes only run noise, not the fixed `flood_a` disaster).
+  (2) `make web` was crashing with **Error 139 (segfault)** — `ThreadingHTTPServer` ran numpy/pandas
+  in spawned request threads, which segfaults on macOS. Switched to a single-threaded `HTTPServer`
+  (a local single-user demo needs no concurrency) + swallow client-disconnect `BrokenPipeError`.
+  Verified: 6 concurrent + all strategies + drift → all 200, process stable.
 
 ## 2026-07-30 — Visuals for the simulation: mission animation (GIF) + sweep results chart
 

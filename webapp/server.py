@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -123,11 +123,14 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask) -> dict:
 
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype):
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the browser navigated away / cancelled — don't crash the server
 
     def do_GET(self):  # noqa: N802 (stdlib naming)
         route = urlparse(self.path)
@@ -161,7 +164,9 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    # Single-threaded on purpose: numpy/pandas in a spawned request thread can segfault on macOS
+    # (Error 139). A local single-user demo has no need for concurrency; each run takes ~0.2 s.
+    httpd = HTTPServer(("127.0.0.1", port), Handler)
     print(f"[web] Multi-UAV mission visualiser running -> http://127.0.0.1:{port}")
     print("[web] open that URL in a browser; Ctrl-C to stop.")
     try:
