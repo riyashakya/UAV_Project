@@ -45,9 +45,11 @@ def run(
     oracle=None,
     fail_at: dict[int, float] | None = None,
     record_trajectory: bool = False,
+    record_detections: bool = False,
 ) -> dict:
     """Run the simulation. ``fail_at`` maps uav_id -> time (s) to force a mid-mission failure.
-    ``record_trajectory`` (off by default) appends a per-timestep snapshot for the animation."""
+    ``record_trajectory`` (off by default) appends a per-timestep snapshot for the animation;
+    ``record_detections`` appends each reported detection (class, confidence, position)."""
     if coordinator is None:  # backward-compatible: wrap a static plan
         from src.coordination.allocation import Coordinator
 
@@ -58,6 +60,7 @@ def run(
     found_total: dict[str, int] = {}
     events: list[dict] = []
     trajectory: list[dict] = []
+    detections_log: list[dict] = []
     n_steps = int(round(duration_s / dt))
 
     def rec(u, kind, t, **extra):
@@ -112,6 +115,18 @@ def run(
                     current_cell[u.id] = None
                     dets = oracle.get_detections(cid, rng) if oracle is not None else []
                     coordinator.on_survey(u, cid, dets)
+                    if record_detections:
+                        for d in dets:
+                            detections_log.append(
+                                {
+                                    "t": t,
+                                    "cell": cid,
+                                    "cls": d.cls,
+                                    "confidence": round(float(d.confidence), 4),
+                                    "lat": d.lat_wgs84,
+                                    "lon": d.lon_wgs84,
+                                }
+                            )
                     found = sorted(d.cls for d in dets)
                     for c in found:
                         found_total[c] = found_total.get(c, 0) + 1
@@ -144,6 +159,8 @@ def run(
     }
     if record_trajectory:
         result["trajectory"] = trajectory
+    if record_detections:
+        result["detections"] = detections_log
     return result
 
 

@@ -37,7 +37,101 @@ def _survivor_reveal(events) -> dict[str, float]:
     return reveal
 
 
-def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask) -> dict:
+def _survivors(detections) -> dict:
+    """Summarise the detected people: total, mean confidence, and a per-cell breakdown."""
+    persons = [d for d in detections if d["cls"] == "person"]
+    by_cell: dict[int, dict] = {}
+    for d in persons:
+        e = by_cell.setdefault(int(d["cell"]), {"count": 0, "best": 0.0, "sum": 0.0, "t": d["t"]})
+        e["count"] += 1
+        e["sum"] += d["confidence"]
+        e["best"] = max(e["best"], d["confidence"])
+    cells = [
+        {
+            "cell": c,
+            "count": e["count"],
+            "best_conf": round(e["best"], 3),
+            "mean_conf": round(e["sum"] / e["count"], 3),
+            "first_t": e["t"],
+        }
+        for c, e in by_cell.items()
+    ]
+    cells.sort(key=lambda x: -x["best_conf"])
+    total = len(persons)
+    mean_conf = round(sum(d["confidence"] for d in persons) / total, 3) if total else 0.0
+    return {"total": total, "mean_conf": mean_conf, "cells": cells}
+
+
+def _response_plan(world, focus_cell: int, scenario_name: str, seed: int) -> dict:
+    """Perception → drift → routing for the top survivor: project their drift probability zones,
+    then route from base to where they are predicted to drift (not the stale detection cell)."""
+    import numpy as np
+    from src.drift.advect import drift_search_region
+    from src.routing.graph import apply_detections, detections_from_cache, road_graph_from_world
+    from src.routing.safe_path import pareto_front
+
+    d = OmegaConf.load(REPO_ROOT / "configs/drift/default.yaml")
+    region = drift_search_region(
+        world.cell_center(focus_cell),
+        world.flow,
+        rng=np.random.default_rng(int(seed)),
+        n_particles=int(d.n_particles),
+        horizon_s=float(d.horizon_s),
+        dt=float(d.timestep_s),
+        leeway_factor=float(d.leeway_factor),
+        k_h=float(d.k_h),
+        containment_levels=(0.5, 0.9),
+    )
+
+    def poly_xy(p):
+        if p.is_empty or p.geom_type != "Polygon":
+            return []
+        return [[round(x, 1), round(y, 1)] for x, y in p.exterior.coords]
+
+    drift = {
+        "centroid": [round(float(v), 1) for v in region["centroid"]],
+        "contain50": poly_xy(region["containment"][0.5]),
+        "contain90": poly_xy(region["containment"][0.9]),
+        "area90_ha": round(region["areas_m2"][0.9] / 1e4, 2),
+        "horizon_min": round(float(d.horizon_s) / 60),
+    }
+
+    # rescue target = the cell nearest the drift centroid (search where they will be, not were)
+    cx, cy = region["centroid"]
+    size = world.cell_size_m
+    col = min(world.cols - 1, max(0, round(cx / size - 0.5)))
+    row = min(world.rows - 1, max(0, round(cy / size - 0.5)))
+    target_cell = int(row * world.cols + col)
+
+    g = road_graph_from_world(world)
+    cache = REPO_ROOT / "data" / "cache" / "detections.parquet"
+    if cache.exists():
+        apply_detections(g, detections_from_cache(cache, scenario_name))
+    routes = None
+    base = 0
+    if target_cell != base and g.has_node(target_cell):
+        lambdas = [0.0] + list(np.logspace(-2, np.log10(50.0), 30))
+        front = pareto_front(g, base, target_cell, lambdas)
+        if front:
+
+            def route(r):
+                pts = [world.cell_center(c) for c in r["path"]]
+                return {
+                    "path_xy": [[round(x, 1), round(y, 1)] for x, y in pts],
+                    "length_m": round(r["length"]),
+                    "risk": round(r["risk"], 1),
+                }
+
+            routes = {"fastest": route(front[0]), "safest": route(front[-1])}
+    return {
+        "focus_cell": int(focus_cell),
+        "target_cell": target_cell,
+        "drift": drift,
+        "routes": routes,
+    }
+
+
+def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask, n_uavs=None) -> dict:
     """Run one mission with the given controls; return everything the browser needs to draw it."""
     scenario = OmegaConf.load(REPO_ROOT / "configs/scenario/flood_a.yaml")
     world_cfg = OmegaConf.load(REPO_ROOT / "configs/sim/world.yaml")
@@ -46,7 +140,9 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask) -> dict:
 
     world = World.from_configs(scenario, world_cfg)
     params = UAVParams.from_cfg(uav_cfg)
-    n_uavs = int(world_cfg.get("n_uavs", 4))
+    if n_uavs is None:
+        n_uavs = int(world_cfg.get("n_uavs", 4))
+    n_uavs = max(1, min(8, int(n_uavs)))  # the engine supports any count; clamp for the demo
     uavs = [UAV(i, params, world.base_xy) for i in range(n_uavs)]
     bw = coord_cfg.allocation.bid_weights
 
@@ -96,6 +192,13 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask) -> dict:
         oracle=oracle,
         fail_at=fail_map,
         record_trajectory=True,
+        record_detections=True,
+    )
+    survivors = _survivors(result.get("detections", []))
+    plan = (
+        _response_plan(world, survivors["cells"][0]["cell"], scenario.name, seed)
+        if survivors["cells"]
+        else None
     )
     return {
         "params": {
@@ -118,6 +221,8 @@ def simulate(*, seed, strategy, fail_uav, fail_at, drift_retask) -> dict:
         "found": result["found_total"],
         "uav_end": result["uav_end"],
         "lost_cells": result["lost_cells"],
+        "survivors": survivors,
+        "plan": plan,
     }
 
 
@@ -150,6 +255,7 @@ class Handler(BaseHTTPRequestHandler):
             out = simulate(
                 seed=int(q.get("seed", ["0"])[0]),
                 strategy=q.get("strategy", ["auction"])[0],
+                n_uavs=int(q.get("n_uavs", ["4"])[0]),
                 fail_uav=int(q.get("fail_uav", ["2"])[0]),
                 fail_at=(float(q.get("fail_at", ["100"])[0]) if fail_on else None),
                 drift_retask=q.get("drift", ["0"])[0] == "1",

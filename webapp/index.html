@@ -78,6 +78,9 @@
       <option value="random_walk">Random walk</option>
     </select>
 
+    <label for="nuav">Number of UAVs</label>
+    <input type="number" id="nuav" value="4" min="1" max="6" step="1" />
+
     <label for="seed">Random seed</label>
     <input type="number" id="seed" value="0" min="0" step="1" />
     <p class="hint" style="margin-top:6px">Changes only the random noise (missed detections; random-walk paths). The disaster map (scenario <b>flood_a</b>) stays the same — for auction/static the flight paths won't visibly change.</p>
@@ -89,6 +92,7 @@
     </div>
 
     <div class="check"><input type="checkbox" id="drift" /><label for="drift" style="margin:0">Drift-aware re-tasking (RQ4)</label></div>
+    <div class="check"><input type="checkbox" id="showPlan" checked /><label for="showPlan" style="margin:0">Show response plan (drift + routes)</label></div>
 
     <button class="run" id="run">Run simulation</button>
     <p class="hint">Tip: run <b>Adaptive auction</b> vs <b>Static partition</b> with a failure on — watch static leave cells unsurveyed while the auction recovers.</p>
@@ -109,6 +113,9 @@
         <span><i class="sw" style="background:#B85042;border-radius:50%"></i>survivor</span>
         <span><i class="sw" style="background:#111"></i>base</span>
         <span>● UAV &nbsp; ✕ failed</span>
+        <span><i class="sw" style="background:#9CC6E8"></i>drift 90%</span>
+        <span style="color:#E08A1E;font-weight:700">▬ fastest</span>
+        <span style="color:#1C7293;font-weight:700">▬ safest</span>
       </div>
     </div>
 
@@ -132,6 +139,8 @@ function clearStatus(){ $("status").style.display="none"; }
 $("failOn").addEventListener("change",()=>{
   const on=$("failOn").checked; $("failUav").disabled=!on; $("failAt").disabled=!on;
 });
+$("nuav").addEventListener("change",()=>{ $("failUav").max=Math.max(0,(+$("nuav").value)-1); });
+$("showPlan").addEventListener("change",()=>{ if(DATA) draw(); });
 
 // On load, confirm we're actually served by the server (not opened as a file).
 fetch("/api/meta").then(r=>{ if(!r.ok) throw 0; clearStatus(); }).catch(()=>showStatus(SERVER_MSG));
@@ -139,7 +148,7 @@ fetch("/api/meta").then(r=>{ if(!r.ok) throw 0; clearStatus(); }).catch(()=>show
 async function runSim(){
   const btn=$("run"); btn.disabled=true; btn.textContent="Running…"; clearStatus();
   const q=new URLSearchParams({
-    strategy:$("strategy").value, seed:$("seed").value,
+    strategy:$("strategy").value, seed:$("seed").value, n_uavs:$("nuav").value,
     fail:$("failOn").checked?"1":"0", fail_uav:$("failUav").value, fail_at:$("failAt").value,
     drift:$("drift").checked?"1":"0"
   });
@@ -196,6 +205,8 @@ function draw(){
     else if(st==="landed"){ctx.fillRect(px-6,py-6,12,12);ctx.strokeRect(px-6,py-6,12,12);}
     else {ctx.beginPath();ctx.arc(px,py,8,0,7);ctx.fill();ctx.stroke();}
   }
+  // response plan overlay (drift zones + rescue routes)
+  if($("showPlan").checked) drawPlan();
   // HUD
   const fail=DATA.params.fail;
   document.getElementById("banner").style.display = (fail && t>=fail.t) ? "block":"none";
@@ -204,6 +215,26 @@ function draw(){
   $("scrub").value=frame;
 }
 
+function polyPath(pts){ ctx.beginPath(); pts.forEach((p,i)=>{const [x,y]=world2px(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); }
+function drawPlan(){
+  const p=DATA.plan; if(!p) return;
+  // drift containment probability zones
+  if(p.drift.contain90.length){ polyPath(p.drift.contain90); ctx.closePath();
+    ctx.fillStyle="rgba(156,198,232,0.30)"; ctx.fill(); ctx.strokeStyle="#5E9FD0"; ctx.lineWidth=1.5; ctx.stroke(); }
+  if(p.drift.contain50.length){ polyPath(p.drift.contain50); ctx.closePath(); ctx.fillStyle="rgba(94,159,208,0.30)"; ctx.fill(); }
+  // rescue routes from base to the predicted drift location
+  if(p.routes){
+    ctx.lineWidth=3; ctx.setLineDash([]);
+    polyPath(p.routes.fastest.path_xy); ctx.strokeStyle="#E08A1E"; ctx.stroke();
+    ctx.setLineDash([7,5]); polyPath(p.routes.safest.path_xy); ctx.strokeStyle="#1C7293"; ctx.stroke(); ctx.setLineDash([]);
+  }
+  // detection cell (where seen) and drift centroid (predicted position, ✕)
+  const [fx,fy,fw,fh]=cellRect(p.focus_cell);
+  ctx.strokeStyle="#B85042"; ctx.lineWidth=2.5; ctx.strokeRect(fx+2,fy+2,fw-4,fh-4);
+  const [cx,cy]=world2px(p.drift.centroid[0],p.drift.centroid[1]);
+  ctx.strokeStyle="#0C3B6E"; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(cx-7,cy-7);ctx.lineTo(cx+7,cy+7);ctx.moveTo(cx+7,cy-7);ctx.lineTo(cx-7,cy+7); ctx.stroke();
+}
 function tick(){ if(frame<DATA.trajectory.length-1){frame++; draw();} else play(false); }
 function play(on){
   playing=on; $("play").textContent=on?"❚❚":"▶";
@@ -220,16 +251,44 @@ function badge(status){
   const c={cruising:"#1565C0",idle:"#7FB3D5",returning:"#E08A1E",landed:"#1E8E5A",dead:"#C0392B"}[status]||"#888";
   return '<span class="dot" style="background:'+c+'"></span>';
 }
+function confBar(v){
+  return '<span style="display:inline-block;width:56px;height:7px;background:#E3EBF3;border-radius:4px;vertical-align:middle">'
+    +'<span style="display:block;width:'+Math.round(v*100)+'%;height:100%;background:#1565C0;border-radius:4px"></span></span>';
+}
 function renderStats(d){
-  const found=d.found||{}, cov=Math.round(d.coverage*100);
+  const found=d.found||{}, cov=Math.round(d.coverage*100), s=d.survivors||{total:0,cells:[]};
   const uavs=Object.entries(d.uav_end).map(([id,u])=>'<span class="uav">'+badge(u.status)+' UAV-'+id+' · '+u.status+'</span>').join("");
-  $("result").innerHTML =
+  let html=
     '<div class="stats">'+
       '<div class="tile"><div class="n">'+cov+'%</div><div class="l">area covered</div></div>'+
-      '<div class="tile"><div class="n">'+(found.person||0)+'</div><div class="l">survivors found</div></div>'+
+      '<div class="tile"><div class="n">'+s.total+'</div><div class="l">survivors detected</div></div>'+
+      '<div class="tile"><div class="n">'+Math.round((s.mean_conf||0)*100)+'%</div><div class="l">mean confidence</div></div>'+
       '<div class="tile"><div class="n">'+d.lost_cells.length+'</div><div class="l">cells lost</div></div>'+
-      '<div class="tile"><div class="n">'+d.world.n_uavs+'</div><div class="l">UAVs</div></div>'+
     '</div><div class="uavs">'+uavs+'</div>';
+
+  if(s.total){
+    const rows=s.cells.slice(0,6).map(c=>
+      '<tr><td style="padding:2px 10px 2px 0">cell '+c.cell+'</td>'
+      +'<td style="padding:2px 10px;color:#5C7183">'+c.count+' ppl</td>'
+      +'<td style="padding:2px 0">'+confBar(c.best_conf)+' <b>'+Math.round(c.best_conf*100)+'%</b></td></tr>').join('');
+    html+='<h2 style="margin:16px 0 8px">Survivors detected</h2>'
+      +'<table style="font-size:13px;border-collapse:collapse"><tr style="color:#5C7183;font-size:11px;text-transform:uppercase;letter-spacing:.06em">'
+      +'<th style="text-align:left;padding-right:10px">location</th><th style="text-align:left;padding:0 10px">count</th><th style="text-align:left">best confidence</th></tr>'
+      +rows+'</table>';
+  }
+  if(d.plan){
+    const p=d.plan, r=p.routes;
+    html+='<h2 style="margin:16px 0 8px">Response plan — top survivor (cell '+p.focus_cell+')</h2>'
+      +'<p style="font-size:13px;margin:0 0 6px;line-height:1.5">Projected to drift into a <b>'+p.drift.area90_ha
+      +' ha</b> 90% search zone over '+p.drift.horizon_min+' min → rescue target <b>cell '+p.target_cell+'</b>.</p>';
+    if(r){
+      const same = r.fastest.length_m===r.safest.length_m && r.fastest.risk===r.safest.risk;
+      html+= same
+        ? '<p style="font-size:13px;margin:0;line-height:1.5"><b style="color:#E08A1E">Fastest route '+r.fastest.length_m+' m</b> — already the safest here (low hazard along the way).</p>'
+        : '<p style="font-size:13px;margin:0;line-height:1.5"><b style="color:#E08A1E">Fastest '+r.fastest.length_m+' m</b> (risk '+r.fastest.risk+') · <b style="color:#1C7293">Safest '+r.safest.length_m+' m</b> (risk '+r.safest.risk+')</p>';
+    }
+  }
+  $("result").innerHTML=html;
 }
 </script>
 </body>

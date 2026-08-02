@@ -37,6 +37,15 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
   in spawned request threads, which segfaults on macOS. Switched to a single-threaded `HTTPServer`
   (a local single-user demo needs no concurrency) + swallow client-disconnect `BrokenPipeError`.
   Verified: 6 concurrent + all strategies + drift → all 200, process stable.
+  (3) **Enriched the results** on request: a **Number of UAVs** control (engine already supports
+  1–6, sweep uses [1,2,4,6]); a **survivors-detected** table with real YOLO **confidence** per cell
+  (engine got a guarded `record_detections` flag; the oracle already carries confidence + lat/lon);
+  and a **response plan** for the top survivor — its **drift** probability zones (50/90 % containment,
+  drawn on the canvas) and the **fastest vs safest** rescue route from base to the *predicted drift
+  cell* (reuses Phase 7 + Phase 8). Honest note surfaced in the UI: on `flood_a` the water is sparse
+  so fastest == safest for that route ("already the safest here"). Clarified that UAVs are
+  autonomously coordinated — you set the *count*, the auction decides positions; manual steering
+  would defeat the contribution. Core 87 tests still green.
 
 ## 2026-07-30 — Visuals for the simulation: mission animation (GIF) + sweep results chart
 
