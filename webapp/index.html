@@ -116,7 +116,7 @@
       </div>
       <div class="legend">
         <span><i class="sw" style="background:#D6ECDD"></i>surveyed</span>
-        <span><i class="sw" style="background:#B85042;border-radius:50%"></i>survivor</span>
+        <span><i class="sw" style="background:#D7263D;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px #D7263D"></i>survivor (size = count)</span>
         <span><i class="sw" style="background:#111"></i>base</span>
         <span>● UAV &nbsp; ✕ failed</span>
         <span><i class="sw" style="background:#9CC6E8"></i>drift 90%</span>
@@ -191,11 +191,6 @@ function draw(){
   // surveyed cells
   ctx.fillStyle="#D6ECDD";
   for(const cid of snap.visited){const [x,y,ww,hh]=cellRect(cid);ctx.fillRect(x,y,ww,hh);}
-  // survivors revealed
-  ctx.fillStyle="rgba(184,80,66,0.55)";
-  for(const [cid,rt] of Object.entries(DATA.survivor_reveal)){
-    if(rt<=t){const [x,y,ww,hh]=cellRect(+cid);ctx.beginPath();ctx.arc(x+ww/2,y+hh/2,4,0,7);ctx.fill();}
-  }
   // base
   const [bx,by]=world2px(DATA.world.base_xy[0],DATA.world.base_xy[1]);
   ctx.fillStyle="#111"; ctx.fillRect(bx-6,by-6,12,12);
@@ -213,6 +208,15 @@ function draw(){
   }
   // response plan overlay (drift zones + rescue routes)
   if($("showPlan").checked) drawPlan();
+  // survivor detections — drawn on top so they read as clear red dots (bigger where more people)
+  for(const [cid,rt] of Object.entries(DATA.survivor_reveal)){
+    if(rt>t) continue;
+    const [x,y,ww,hh]=cellRect(+cid);
+    const hit=(DATA.survivors&&DATA.survivors.cells.find(c=>c.cell==+cid))||{};
+    const r=Math.min(11, 5+Math.log2((hit.count||1)+1));
+    ctx.beginPath(); ctx.arc(x+ww/2,y+hh/2,r,0,7);
+    ctx.fillStyle="#D7263D"; ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
+  }
   // HUD
   const fail=DATA.params.fail;
   document.getElementById("banner").style.display = (fail && t>=fail.t) ? "block":"none";
