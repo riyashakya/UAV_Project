@@ -141,15 +141,24 @@ grows with the failure rate.** The nuance strengthens the story: `random_walk` m
 but *wastefully* (redundant-revisit ratio 1.1–1.24, more distance), and `single_uav` collapses
 (≈56% under two failures). Training YOLO11 remains supporting engineering. The contribution is:
 
-1. **Adaptive multi-UAV task reallocation** (Phase 6) evaluated against three baselines with
-   Monte-Carlo statistics (Phase 9) — *the* core contribution. The result "adaptive beats static
-   by X% (95% CI …), and here is when it does not" is publishable-shaped and marks well.
-2. **Survivor-drift-driven re-tasking** (Phase 7) — adapting maritime SAR planning (USCG SAROPS:
-   leeway + Monte-Carlo containment) to UAV re-tasking is the most novel idea in the whole plan
-   and is what would lift this above "another coverage-planning project."
-3. **The decoupled evaluation methodology** (ADR-001) — scoring perception on real data while
-   running coordination over hundreds of CPU seeds — is a defensible methodological contribution.
-4. **The perception domain-gap + SAHI study** (Phase 2b) — a smaller, clean empirical result.
+**Honesty check (Aug 2026 literature review — see [`related_work.md`](related_work.md)):** auction/
+Contract-Net reallocation of a failed robot's coverage is **established prior work**, including with
+the same boustrophedon sweep and in UAV-SAR with reverse-auction-on-failure. Do **not** claim it as
+novel. The contribution is the *integration + controlled evaluation + methodology*, positioned below.
+
+1. **The decoupled evaluation methodology** (ADR-001) — scoring perception on real labelled data
+   while running coordination over hundreds of CPU seeds, so measured detector error can be swept as
+   a controlled variable over the coordination layer. The strongest, most buildable angle: a
+   **perception × coordination sensitivity study** (most work isolates one or the other).
+2. **Adaptive reallocation, rigorously evaluated** (Phase 6 + 9) — the *method* is established; the
+   value is the honest baselines + Monte-Carlo statistics ("adaptive beats static by X% (95% CI …),
+   and here is when it does not").
+3. **Video-estimated flow → drift** — replacing the *assumed* flow field with a current estimated
+   from the drone imagery (bridging UAV hydrometry and SAR drift) is the most novel-leaning
+   extension; realistically a proof-of-concept (needs water-surface video).
+4. **Adapting maritime SAROPS drift to inland-flood UAV re-tasking** (Phase 7), evidenced by the RQ4
+   result (`make rq4`) — an adaptation/integration claim, not a new drift algorithm.
+5. **The perception domain-gap + SAHI study** (Phase 2b) — a smaller, clean empirical result.
 
 **To turn setup into contribution:** build (1) and (2) and evaluate them rigorously (baselines,
 seeds, confidence intervals, ablations). Without the baselines and statistics, the system is a
@@ -165,11 +174,13 @@ scope warning says the same: any **one** of the objectives, done rigorously, is 
 The route to a **strong** dissertation is **depth on one or two things**, done with baselines,
 ablations, and statistics:
 
-- **Go deep on:** multi-UAV adaptive coordination (Phase 6) + its rigorous evaluation (Phase 9)
-  — this is the contribution. Amplify novelty by coupling it to **drift-driven re-tasking**
-  (Phase 7): a detected survivor drifts in flood water → the search region updates → UAVs
-  re-auction. That pairing is genuinely novel and directly ties perception → prediction →
-  coordination.
+- **Go deep on:** the **perception × coordination coupling** — adaptive coordination (Phase 6) +
+  rigorous evaluation (Phase 9), with detector error swept as a controlled variable via the
+  decoupled oracle. The coordination *method* is established (see [`related_work.md`](related_work.md));
+  the depth is in the honest, statistical evaluation and the perception→coordination sensitivity.
+  Couple it to **drift-driven re-tasking** (Phase 7): a detected survivor drifts → the search region
+  updates → UAVs re-task. That pairing is the most *distinctive integration* (position it as such,
+  not as a novel algorithm — verify against the literature first).
 - **Keep as a supporting chapter:** the perception SAHI + domain-gap study (Phase 2b) — you
   already have the models, so this is cheap and clean.
 - **Cut / park (breadth, not depth):** NeRF/3DGS (Phase 10), object tracking, and multi-scenario
