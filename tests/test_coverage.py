@@ -2,8 +2,27 @@
 
 from __future__ import annotations
 
-from src.coordination.coverage import coverage_fraction, coverage_path, sweep_line_ys
+from src.coordination.coverage import (
+    coverage_fraction,
+    coverage_path,
+    path_coverage_fraction,
+    path_length,
+    spiral_path,
+    sweep_line_ys,
+)
 from src.sim.world import World
+
+
+def test_lawnmower_and_spiral_both_cover_the_sector():
+    """Both coverage patterns must fully cover the same sector to the same footprint (the fair
+    basis for comparing their path lengths)."""
+    world = World(rows=8, cols=8, cell_size_m=200.0)
+    cells = [c.id for c in world.cells]
+    law = coverage_path(cells, world, footprint_width_m=220.0, sidelap=0.2)
+    spi = spiral_path(cells, world, footprint_width_m=220.0, sidelap=0.2)
+    assert path_coverage_fraction(law, cells, world, 220.0) >= 0.99
+    assert path_coverage_fraction(spi, cells, world, 220.0) >= 0.99
+    assert path_length(law) > 0 and path_length(spi) > 0  # both are real, non-degenerate paths
 
 
 def test_sweep_lines_cover_the_full_extent():

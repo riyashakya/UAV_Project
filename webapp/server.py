@@ -38,14 +38,20 @@ def _survivor_reveal(events) -> dict[str, float]:
 
 
 def _survivors(detections) -> dict:
-    """Summarise the detected people: total, mean confidence, and a per-cell breakdown."""
+    """Summarise the detected people: total, mean confidence, and a per-cell breakdown — including
+    the (georeferenced) lat/lon of the highest-confidence detection in each cell (the pinpoint)."""
     persons = [d for d in detections if d["cls"] == "person"]
     by_cell: dict[int, dict] = {}
     for d in persons:
-        e = by_cell.setdefault(int(d["cell"]), {"count": 0, "best": 0.0, "sum": 0.0, "t": d["t"]})
+        e = by_cell.setdefault(
+            int(d["cell"]),
+            {"count": 0, "best": -1.0, "sum": 0.0, "t": d["t"], "lat": None, "lon": None},
+        )
         e["count"] += 1
         e["sum"] += d["confidence"]
-        e["best"] = max(e["best"], d["confidence"])
+        if d["confidence"] > e["best"]:  # keep the pinpoint of the strongest detection
+            e["best"] = d["confidence"]
+            e["lat"], e["lon"] = round(float(d["lat"]), 6), round(float(d["lon"]), 6)
     cells = [
         {
             "cell": c,
@@ -53,6 +59,8 @@ def _survivors(detections) -> dict:
             "best_conf": round(e["best"], 3),
             "mean_conf": round(e["sum"] / e["count"], 3),
             "first_t": e["t"],
+            "lat": e["lat"],
+            "lon": e["lon"],
         }
         for c, e in by_cell.items()
     ]
@@ -62,7 +70,27 @@ def _survivors(detections) -> dict:
     return {"total": total, "mean_conf": mean_conf, "cells": cells}
 
 
-def _response_plan(world, focus_cell, det_scenario, seed, flood_overlay=None) -> dict:
+def _to_latlon(origin, x_east_m, y_south_m):
+    """Grid metres → WGS84, using the scenario's synthetic-geo anchor (origin = the grid's NW
+    corner). Equirectangular approximation — fine over a ~km-scale area."""
+    import math
+
+    lat = float(origin[0]) - y_south_m / 111320.0
+    lon = float(origin[1]) + x_east_m / (111320.0 * math.cos(math.radians(float(origin[0]))))
+    return [round(lat, 6), round(lon, 6)]
+
+
+def _gmaps_dir_url(latlon_waypoints) -> str:
+    """A Google Maps directions URL through the given (lat, lon) waypoints (Maps snaps to real
+    roads between them). Capped to keep the URL short."""
+    pts = latlon_waypoints
+    if len(pts) > 10:  # keep endpoints, evenly sample the middle
+        idx = [round(i * (len(pts) - 1) / 9) for i in range(10)]
+        pts = [pts[i] for i in sorted(set(idx))]
+    return "https://www.google.com/maps/dir/" + "/".join(f"{a},{b}" for a, b in pts)
+
+
+def _response_plan(world, focus_cell, det_scenario, seed, origin, flood_overlay=None) -> dict:
     """Perception → drift → routing for the top survivor: project their drift probability zones,
     then route from base to where they are predicted to drift (not the stale detection cell).
     ``flood_overlay`` overlays a contiguous flood barrier so fastest and safest diverge."""
@@ -122,6 +150,7 @@ def _response_plan(world, focus_cell, det_scenario, seed, flood_overlay=None) ->
             risk_south=float(flood_overlay["risk_south"]),
         )
     routes = None
+    gmaps_url = None
     base = 0
     if target_cell != base and g.has_node(target_cell):
         lambdas = [0.0] + list(np.logspace(-2, np.log10(50.0), 30))
@@ -137,11 +166,16 @@ def _response_plan(world, focus_cell, det_scenario, seed, flood_overlay=None) ->
                 }
 
             routes = {"fastest": route(front[0]), "safest": route(front[-1])}
+            # Google Maps directions through the SAFEST (recommended) route, in real coordinates
+            safest_pts = [world.cell_center(c) for c in front[-1]["path"]]
+            gmaps_url = _gmaps_dir_url([_to_latlon(origin, x, y) for x, y in safest_pts])
     return {
         "focus_cell": int(focus_cell),
         "target_cell": target_cell,
+        "target_latlon": _to_latlon(origin, *world.cell_center(target_cell)),
         "drift": drift,
         "routes": routes,
+        "gmaps_url": gmaps_url,
     }
 
 
@@ -224,9 +258,12 @@ def simulate(
     flood_overlay = scen.get("flood_overlay")
     if flood_overlay is not None:
         flood_overlay = OmegaConf.to_container(flood_overlay, resolve=True)
+    origin = (float(scen.origin_wgs84.lat), float(scen.origin_wgs84.lon))
     survivors = _survivors(result.get("detections", []))
     plan = (
-        _response_plan(world, survivors["cells"][0]["cell"], det_scenario, seed, flood_overlay)
+        _response_plan(
+            world, survivors["cells"][0]["cell"], det_scenario, seed, origin, flood_overlay
+        )
         if survivors["cells"]
         else None
     )

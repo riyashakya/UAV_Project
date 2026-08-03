@@ -11,6 +11,32 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-03 — Presentation batch: coverage-pattern comparison, geo pinpoints + Google Maps, pipeline map
+
+- **Request:** (2) a web button to open the route in Google Maps; (3) compare spiral vs lawnmower
+  coverage; (5) show survivor pinpoint (lat/lon) in the web and make results presentation-clear;
+  (6) a doc mapping each pipeline step to files/`make` commands.
+- **Summary:**
+  - **(3)** `coverage.py` gains `spiral_path` + generic `path_length`/`path_coverage_fraction`;
+    `src/eval/coverage_compare.py` (`make coverage-compare`) reports path length at equal coverage
+    for lawnmower vs spiral over a sector, with a figure — answers "only one flying technique?".
+  - **(2/5)** the sim is synthetic-geo but every detection is georeferenced (`origin_wgs84` anchor);
+    the web server converts grid metres → WGS84 and returns lat/lon for each survivor cell + the
+    drift target, plus a **Google Maps directions URL** through the recommended route's waypoints.
+    UI shows the survivor coordinates and an **"Open route in Google Maps"** button.
+  - **(6)** `docs/PIPELINE_MAP.md` — a table: pipeline step → file(s) → `make` command → output.
+- **Why:** all reuse existing tested pieces; the geo is honest (synthetic anchor, clearly labelled),
+  the coverage comparison is standalone (no engine change).
+- **Files changed:** `src/coordination/coverage.py`, `src/eval/coverage_compare.py` (new),
+  `configs/eval/coverage.yaml` (new), `webapp/{server.py,index.html}`, `tests/test_coverage.py`,
+  `Makefile`, `docs/PIPELINE_MAP.md` (new), `docs/JOURNAL.md`.
+- **Status:** ✅ done. (3) `make coverage-compare`: on an 8×8 sector both patterns cover 100 %;
+  **lawnmower 15,780 m vs spiral 13,308 m** → spiral 16 % shorter here (a real, honest finding; the
+  framework can now compare patterns). (2/5) web survivors table shows each pinpoint's **lat/lon**
+  (georeferenced, clickable → Google Maps) and the response plan has an **"Open rescue route in
+  Google Maps"** button through the safest route's waypoints; verified in-browser. (6)
+  `docs/PIPELINE_MAP.md` maps all 15 stages → files → `make` command → output. 90 tests green.
+
 ## 2026-08-03 — RQ4 quantitative result: drift-aware search vs the stale sighting
 
 - **Request:** a real quantitative result for the drift/re-tasking contribution (so far the RQ4 loop

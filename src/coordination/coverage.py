@@ -59,6 +59,69 @@ def coverage_path(
     return path
 
 
+def spiral_path(
+    sector_cells: list[int], world: World, footprint_width_m: float, sidelap: float
+) -> list[tuple[float, float]]:
+    """Ordered inward rectangular-spiral waypoints covering the sector's bounding box, with rings
+    spaced by the same ``footprint × (1 - sidelap)`` stride as the lawnmower sweep (so both cover
+    to the same footprint). An alternative to boustrophedon, for the coverage-pattern comparison."""
+    if not sector_cells:
+        return []
+    xmin, xmax, ymin, ymax = _sector_bbox(sector_cells, world)
+    fw = footprint_width_m
+    stride = fw * (1.0 - sidelap)
+    if stride <= 0:
+        raise ValueError("sidelap must be < 1 so the spiral advances")
+    left, right = xmin + fw / 2, xmax - fw / 2
+    top, bottom = ymin + fw / 2, ymax - fw / 2
+    path: list[tuple[float, float]] = []
+    while left <= right + 1e-9 and top <= bottom + 1e-9:
+        path.append((left, top))  # traverse this ring: right, down, left, up-into-next
+        path.append((right, top))
+        path.append((right, bottom))
+        path.append((left, bottom))
+        left += stride
+        top += stride
+        right -= stride
+        bottom -= stride
+        if left <= right + 1e-9 and top <= bottom + 1e-9:
+            path.append((left - stride, top))  # step inward to the next ring's start
+    return path or [((xmin + xmax) / 2, (ymin + ymax) / 2)]
+
+
+def path_length(path: list[tuple[float, float]]) -> float:
+    """Total Euclidean length of a waypoint path (metres)."""
+    import math
+
+    return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(path[:-1], path[1:]))
+
+
+def path_coverage_fraction(
+    path: list[tuple[float, float]], sector_cells: list[int], world: World, footprint_width_m: float
+) -> float:
+    """Fraction of sector cells whose centre lies within ``footprint/2`` of the path (2-D: densely
+    samples each leg, so it scores any pattern — lawnmower or spiral — on the same basis)."""
+    import math
+
+    if not sector_cells or len(path) < 1:
+        return 0.0
+    half = footprint_width_m / 2
+    step = max(1.0, footprint_width_m / 4)
+    pts: list[tuple[float, float]] = [path[0]]
+    for a, b in zip(path[:-1], path[1:]):  # sample points along each leg
+        d = math.hypot(b[0] - a[0], b[1] - a[1])
+        for k in range(1, int(d / step) + 1):
+            t = k * step / d
+            pts.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
+        pts.append(b)
+    covered = 0
+    for c in sector_cells:
+        cx, cy = world.cells[c].center_xy
+        if any(math.hypot(px - cx, py - cy) <= half + 1e-9 for px, py in pts):
+            covered += 1
+    return covered / len(sector_cells)
+
+
 def coverage_fraction(
     sector_cells: list[int], world: World, footprint_width_m: float, sidelap: float
 ) -> float:

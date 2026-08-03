@@ -6,7 +6,8 @@
 UV ?= uv
 
 .PHONY: help setup setup-all test test-all lint fmt clean \
-        cache-dets sim sweep drift animate rq4 routes routes-osm demo web eval-perception build-datasets
+        cache-dets sim sweep drift animate rq4 coverage-compare routes routes-osm demo web \
+        eval-perception build-datasets
 
 PAUSE ?= 1
 
@@ -63,6 +64,9 @@ drift:  ## Phase 7: draw the survivor-drift projection + containment -> outputs/
 
 rq4:  ## RQ4: quantify drift-aware search vs the stale sighting -> outputs/runs/rq4_<timestamp>/
 	$(UV) run python -m src.eval.rq4
+
+coverage-compare:  ## Phase 5: lawnmower vs spiral coverage path length -> outputs/runs/coverage_*/
+	$(UV) run python -m src.eval.coverage_compare
 
 animate:  ## Phase 6: GIF of the mission (UAVs, coverage, a failure + reallocation) -> outputs/runs/
 	$(UV) run python -m src.sim.animate

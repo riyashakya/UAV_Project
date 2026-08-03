@@ -1,0 +1,7 @@
+# Coverage-pattern comparison (lawnmower sweep vs spiral). No magic numbers in src/.
+# Footprint + sidelap reuse the Phase-5 coverage defaults (see configs/coordination/default.yaml).
+
+grid: { rows: 8, cols: 8 }     # a single square sector to sweep
+cell_size_m: 200
+footprint_width_m: 220.0       # camera swath on the ground
+sidelap: 0.2                   # overlap fraction between adjacent passes
