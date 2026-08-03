@@ -11,6 +11,30 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-03 — Contribution B: perception × coordination sensitivity study
+
+- **Request:** turn the honest positioning into a result — study how perception error propagates to
+  coordination outcomes (the coupling most work isolates), using the decoupled oracle.
+- **Summary:** `src/eval/sensitivity.py` (`make sensitivity`) sweeps the survivor **false-negative
+  rate** as a controlled variable and, under a UAV failure, measures the end-to-end **survivor-
+  detection rate** (found / ground-truth survivors) for adaptive auction vs static partitioning,
+  mean ± 95 % CI over seeds → a line plot + CSV.
+- **Root cause / motivation:** perception papers report detector AP; coordination papers assume
+  perfect perception. The decoupled design lets the *measured* detector error be a knob over the
+  coordination layer, exposing how the two failure modes (missed detections × lost coverage) compound
+  and how much adaptive re-tasking mitigates the coverage half.
+- **Solution / why:** reuses `engine.run` + `Oracle` (per-run `person` FN override) + the runner's
+  failure helper — no engine change. Detection rate = `found_total["person"] / total person rows in
+  the cache`, a clean, well-defined denominator.
+- **Files changed:** `src/eval/sensitivity.py` (new), `configs/eval/sensitivity.yaml` (new),
+  `tests/test_sensitivity.py` (new), `Makefile`, `docs/{JOURNAL,related_work}.md`.
+- **Status:** ✅ done. Headline (360 runs, mean ± 95 % CI, 6 UAVs, 2-UAV failure): the **adaptive
+  auction hugs the (1 − FN) ceiling** — 100 % of survivors at FN=0, ~51 % at FN=0.5 — because it
+  recovers full coverage, so only perception error costs it survivors; **static partition sits a
+  persistent ~15–29 pts below** (survivors lost in abandoned cells it never recovers). Cleanly
+  separates the two loss factors: perception (irreducible, the ceiling) vs coordination (recovered
+  by re-tasking). Test is dataset-free (synthetic detections); 91 tests total; no engine change.
+
 ## 2026-08-03 — Presentation batch: coverage-pattern comparison, geo pinpoints + Google Maps, pipeline map
 
 - **Request:** (2) a web button to open the route in Google Maps; (3) compare spiral vs lawnmower

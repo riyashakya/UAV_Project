@@ -65,6 +65,9 @@ drift:  ## Phase 7: draw the survivor-drift projection + containment -> outputs/
 rq4:  ## RQ4: quantify drift-aware search vs the stale sighting -> outputs/runs/rq4_<timestamp>/
 	$(UV) run python -m src.eval.rq4
 
+sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/runs/sensitivity_*/
+	$(UV) run python -m src.eval.sensitivity
+
 coverage-compare:  ## Phase 5: lawnmower vs spiral coverage path length -> outputs/runs/coverage_*/
 	$(UV) run python -m src.eval.coverage_compare
 

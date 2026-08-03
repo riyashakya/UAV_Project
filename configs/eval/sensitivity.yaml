@@ -1,0 +1,10 @@
+# Perception × coordination sensitivity (Contribution B). No magic numbers in src/.
+# Sweeps the survivor false-negative rate as a controlled variable over the coordination layer.
+
+scenario: flood_a
+n_uavs: 6
+condition: two_fail          # a 2-UAV failure creates the coverage loss coordination must recover
+strategies: [auction, static_partition_no_realloc]
+fn_rates: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]   # survivor detector false-negative rate (the controlled knob)
+n_seeds: 30
+fail_window_s: [20.0, 120.0]
