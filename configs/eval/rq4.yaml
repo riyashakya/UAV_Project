@@ -1,0 +1,18 @@
+# RQ4 experiment: does re-tasking the search to the survivor's PREDICTED DRIFT region beat searching
+# the STALE detection point? Monte-Carlo over seeds. No magic numbers in src/ — constants live here.
+
+survivor_row: 2              # survivor first detected at this grid cell (row, col)...
+survivor_col: 1
+cell_size_m: 200             # ...cell centre is the "stale sighting" search point
+
+# Directional flood current (the survivor drifts downstream, not in a blind circle).
+flow: { type: channel, vmax: 0.5, axis_y: 500.0, half_width: 700.0 }
+
+horizon_s: 1800              # rescue delay (30 min) — how long the survivor drifts before search
+dt: 30.0                     # advection step (s)
+leeway_factor: 1.0           # survivor speed relative to the water (SAROPS leeway)
+k_h: 2.0                     # horizontal turbulent diffusivity (m^2/s) — sets the spread
+n_particles: 1000            # prediction cloud size
+containment: 0.9             # drift-aware policy searches the 90% containment zone
+
+n_seeds: 300                 # Monte-Carlo repetitions for mean ± 95% CI

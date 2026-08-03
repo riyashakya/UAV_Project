@@ -11,6 +11,31 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-03 — RQ4 quantitative result: drift-aware search vs the stale sighting
+
+- **Request:** a real quantitative result for the drift/re-tasking contribution (so far the RQ4 loop
+  was proven only by unit tests / a mechanism, with no number).
+- **Summary:** `src/eval/rq4.py` — a Monte-Carlo experiment that measures the value of re-tasking the
+  search to the survivor's **predicted drift region** vs the **stale detection point**. Each seed:
+  advect the survivor's *true* position with the flow (one particle); independently predict the drift
+  region (`drift_search_region`, its own RNG so the predictor doesn't see the true draw); then score
+  two policies — search the detection cell (stale) vs search the 90 % containment zone (drift-aware).
+  Metrics over N seeds, mean ± 95 % CI: **localisation rate** (survivor actually inside the searched
+  region) and **localisation error** (metres from the search target to the true position).
+- **Root cause / motivation:** a survivor in floodwater moves; a stale sighting sends rescue to where
+  they *were*. This quantifies how much the drift model helps — the missing RQ4 number.
+- **Solution / why:** standalone experiment reusing only the tested Phase-7 advection — no change to
+  the engine/coordinator (keeps the core + its 87 tests untouched). The true path and the prediction
+  use independent RNG streams so the containment result is a genuine forecast, not circular.
+- **Files changed:** `src/eval/rq4.py` (new), `configs/eval/rq4.yaml` (new), `tests/test_rq4.py`
+  (new), `Makefile` (`rq4` target), `docs/` (ROADMAP/JOURNAL).
+- **Status:** ✅ done. Headline (300 seeds, mean ± 95% CI): the survivor drifts **~893 m** from the
+  sighting; **drift-aware search locates them 88% of the time within 108 ± 6 m**, while the **stale
+  sighting locates 0%** (error 897 ± 10 m) — re-tasking to the drift zone cuts localisation error by
+  **~790 m** and lifts the hit-rate by **88 pts**. Figure `outputs/runs/rq4_*/rq4.png` shows the
+  true positions drifted east into the searched zone, far from the western sighting. 2 tests (exact
+  zero-diffusion case; drift-aware beats stale on rate + error); 89 tests total; core untouched.
+
 ## 2026-08-02 — Interactive web mission visualiser (opt-in demo tool, ADR-003)
 
 - **Request:** a web application to visualise the project in a browser. Flagged first that CLAUDE.md

@@ -55,9 +55,11 @@ _Last updated: 2026-07-28._
   uniform flow → exact v·Δt), containment grows with horizon, 90% polygon holds ≥90% + generalises.
   74 tests green. **RQ4 loop closed (2026-07-30):** `Coordinator(drift_retask=True)` projects the
   survivor's drift and boosts the containment cells so the auction re-tasks UAVs downstream (its
-  own seeded RNG keeps the A/B clean; off by default). Proven by 3 analytic tests; a *quantitative*
-  field result needs a sparse-survivor, resource-constrained scenario + a re-detecting oracle (see
-  JOURNAL 2026-07-30).
+  own seeded RNG keeps the A/B clean; off by default). Proven by 3 analytic tests.
+  **Quantitative RQ4 result (2026-08-03, `make rq4`):** over 300 seeds, re-tasking search to the
+  predicted 90% drift zone locates the survivor **88 %** of the time within **108 ± 6 m**, versus the
+  stale sighting's **0 %** (survivor drifts ~893 m away, error 897 ± 10 m) — i.e. drift-aware
+  re-tasking cuts localisation error by ~790 m. `src/eval/rq4.py`, reuses Phase-7 advection only.
 - **Phase 8 (RQ6):** `routing/{graph,safe_path}.py` — hazard-weighted rescue routing. Segmentation
   hazards fold into a road graph (`road_blocked` **removes** a cell's edges → provably
   untraversable; `water`/`building_damaged` **raise** edge risk); edge weight = length·(1+λ·risk),
