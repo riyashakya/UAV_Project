@@ -121,6 +121,17 @@ def test_drift_retask_is_reproducible_under_seed():
     assert np.array_equal(a.priority, b.priority)
 
 
+def test_greedy_priority_searches_high_priority_cell_first():
+    """Probability-guided ordering: a UAV goes to the high-priority (high-survivor-likelihood) cell
+    first, whereas the default FIFO order starts at cell 0."""
+    world = World(rows=4, cols=4, cell_size_m=100.0)
+    world.priority[10] = 50.0  # a strongly-preferred cell (a survivor-likelihood prior)
+    guided = Coordinator("single_uav", world, 1, greedy_priority=True)
+    assert guided.next_cell(UAV(0, PARAMS, world.base_xy), np.random.default_rng(0)) == 10
+    plain = Coordinator("single_uav", world, 1)  # FIFO drains from cell 0
+    assert plain.next_cell(UAV(0, PARAMS, world.base_xy), np.random.default_rng(0)) == 0
+
+
 def test_unknown_strategy_raises():
     import pytest
 

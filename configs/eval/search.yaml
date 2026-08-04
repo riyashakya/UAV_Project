@@ -1,0 +1,11 @@
+# Probability-guided vs uniform search ordering (addresses the SARCPPF gap). No magic numbers in src/.
+
+grid: { rows: 8, cols: 8 }
+cell_size_m: 200
+cluster_center: [6, 6]       # survivors clustered here (row, col), far from the NW base — so a
+cluster_sigma: 1.3           # uniform sweep reaches them late while a guided search goes there first
+survivors_total: 80
+prior_noise: 0.35            # prior informativeness: 0 = perfect prior, 1 = uninformative (uniform)
+person_fn: 0.1               # detector false-negative rate
+n_seeds: 30
+duration_min: 90

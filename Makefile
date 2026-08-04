@@ -68,6 +68,9 @@ rq4:  ## RQ4: quantify drift-aware search vs the stale sighting -> outputs/runs/
 sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/runs/sensitivity_*/
 	$(UV) run python -m src.eval.sensitivity
 
+search-order:  ## Probability-guided vs uniform search: time-to-locate -> outputs/runs/search_*/
+	$(UV) run python -m src.eval.search_order
+
 coverage-compare:  ## Phase 5: lawnmower vs spiral coverage path length -> outputs/runs/coverage_*/
 	$(UV) run python -m src.eval.coverage_compare
 

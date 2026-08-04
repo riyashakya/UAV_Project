@@ -11,6 +11,34 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-04 — Probability-guided search ordering + experiment (addresses the SARCPPF gap)
+
+- **Request:** a gap vs Wu et al. (2024) SARCPPF — their planner searches high-survivor-probability
+  areas first over a probability map; ours surveys cells uniformly (FIFO within a sector). Add a
+  **probability-guided coverage ordering** and an experiment measuring time-to-locate survivors vs a
+  uniform sweep.
+- **Summary:** (i) `Coordinator(greedy_priority=True)` — a guarded next-cell rule that, instead of
+  FIFO, picks the **nearest high-priority** unvisited cell (lowest `_bid` = travel-discounted
+  priority), so a UAV searches a supplied probability map first while respecting travel. Off by
+  default → existing behaviour/tests unchanged. (ii) `src/eval/search_order.py` (`make search-order`):
+  a single searcher over a grid with **clustered** survivors and an *imperfect* prior probability map
+  (informative + noise); compares the survivors-found-over-time curve for guided vs uniform search,
+  mean ± 95 % CI, and reports time-to-locate.
+- **Root cause / motivation:** honest gap — the fleet does not currently exploit a survivor-likelihood
+  prior to search the most-likely cells first; this is the main advantage of probability-map planners.
+- **Solution / why:** reuses the existing bid function (`_bid`) as the guidance rule — no new planner,
+  and it ties to the drift/containment map (a real probability prior). Prior is imperfect (not the
+  ground truth) so the comparison is honest, not circular; the value shrinks as the prior degrades.
+- **Files changed:** `src/coordination/allocation.py`, `src/eval/search_order.py` (new),
+  `configs/eval/search.yaml` (new), `tests/test_allocation.py`, `tests/test_search_order.py` (new),
+  `Makefile`, `docs/`.
+- **Status:** ✅ done. Headline (`make search-order`, 69 clustered survivors, 30 seeds, imperfect
+  prior): probability-guided search **locates 80 % of survivors in 9.6 ± 0.1 min vs 14.2 min for a
+  uniform sweep — 1.5× faster**; the guided detection curve sits left of the sweep's. Value shrinks
+  toward zero as the prior degrades (tested: no advantage with a uniform prior), so it is honest, not
+  circular. `greedy_priority` is guarded (off by default) → the 91 prior tests are unchanged; 94
+  total. Closes the SARCPPF gap: the fleet can now search the survivor-likelihood prior first.
+
 ## 2026-08-03 — Contribution B: perception × coordination sensitivity study
 
 - **Request:** turn the honest positioning into a result — study how perception error propagates to

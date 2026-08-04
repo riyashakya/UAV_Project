@@ -57,6 +57,7 @@ class Coordinator:
         drift_params: dict | None = None,
         drift_level: float = 0.9,
         drift_seed: int = 0,
+        greedy_priority: bool = False,
     ):
         if strategy not in STRATEGIES:
             raise ValueError(f"unknown strategy {strategy!r}; expected {STRATEGIES}")
@@ -65,6 +66,8 @@ class Coordinator:
         self.n_uavs = n_uavs
         self.a, self.b, self.c = bid_weights
         self.priority_boost = priority_boost
+        # Search the survivor-likelihood prior first (nearest high-priority cell) instead of FIFO.
+        self.greedy_priority = greedy_priority
         # RQ4: re-task toward the survivor's drift region instead of the grid-neighbours.
         self.drift_retask = drift_retask
         self.drift_params = dict(drift_params or {})
@@ -101,6 +104,13 @@ class Coordinator:
             unvisited = [c for c in range(self.world.n_cells) if c not in self.visited]
             return int(rng.choice(unvisited)) if unvisited else None
         q = self.queues[uav.id]
+        if self.greedy_priority:  # search the nearest high-priority (high-survivor-likelihood) cell
+            pending = [c for c in q if c not in self.visited]
+            if not pending:
+                return None
+            best = min(pending, key=lambda c: self._bid(uav, c))
+            q.remove(best)
+            return best
         while q:
             cell = q.popleft()
             if cell not in self.visited:
