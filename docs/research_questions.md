@@ -26,11 +26,15 @@ inference recover small-object AP versus full-frame inference?
 → *Partly answered (Phase 2b): size-stratified AP (small 0.26 vs large 0.78); per-source gap
 (SARD 0.88 vs VisDrone 0.65 AP@50); naive SAHI reduced AP — a documented negative result.*
 
-**RQ4 (drift-driven re-tasking — the most novel).** Does coupling *predicted survivor drift*
-(a SAROPS-style leeway + Monte-Carlo containment model) into the reallocation — re-tasking UAVs
-toward the predicted search polygon — improve survivor localisation over drift-agnostic
-coordination, and how does the advantage scale with current speed and prediction horizon?
-→ *Pending (Phase 7).*
+**RQ4 (drift-driven re-tasking — an inland-flood adaptation, NOT novel).** Does coupling *predicted
+survivor drift* (a SAROPS-style leeway + Monte-Carlo containment model) into the reallocation —
+re-tasking UAVs toward the predicted search polygon — improve survivor localisation over
+drift-agnostic coordination? **Honesty note (Aug 2026 lit check, see [`related_work.md`](related_work.md)):
+drift-aware, moving-target multi-UAV/AUV search with dynamic re-tasking driven by a drift-prediction
+probability map is *established* (incl. 2026 coverage-path-planning based on target-drift prediction,
+and multi-UAV moving-target search with dynamic reallocation). Do NOT claim RQ4 as novel; frame it as
+adapting maritime drift SAR to the *inland-flood UAV* setting, evaluated quantitatively.**
+→ *Done (Phase 7 + `make rq4`): drift-zone search locates 88% vs 0% for the stale sighting.*
 
 **RQ5 (methodology — decoupling).** Does decoupling perception (scored on real labelled data) from
 coordination (scored over Monte-Carlo seeds) via a cached detection oracle yield valid, reproducible
@@ -52,9 +56,13 @@ Most existing work does *one* of: disaster-image perception, multi-robot task al
 maritime drift. This project's differentiators:
 
 1. **Drift-driven re-tasking loop** (RQ4) — perception → survivor-drift prediction → coordination,
-   closed in one system. Rarely done; the strongest single novelty.
+   closed in one system. **Not novel** (drift-aware moving-target multi-UAV/AUV search is established;
+   see [`related_work.md`](related_work.md)); position it as an *adaptation* of maritime drift SAR to
+   the inland-flood UAV setting, with a controlled quantitative evaluation.
 2. **Estimating the water flow field from the drone video itself** — via optical flow of floating
-   surface debris — instead of assuming a current. A novel perception↔physics link (extension).
+   surface debris — instead of assuming a current. Flow-from-drone-video is established in hydrology
+   (LSPIV); the reviewed sources do not connect it to survivor-drift prediction, so this is an
+   *under-explored integration* (extension), not a proven novelty — verify with a focused search.
 3. **Decoupled, reproducible evaluation** (RQ5) — perception scored on real data, coordination over
    hundreds of CPU Monte-Carlo seeds with confidence intervals. Methodologically rigorous.
 4. **Reallocation under realistic failures + detection noise** — the advantage is *measured* with

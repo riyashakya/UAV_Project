@@ -215,7 +215,7 @@ function draw(){
     const hit=(DATA.survivors&&DATA.survivors.cells.find(c=>c.cell==+cid))||{};
     const r=Math.min(11, 5+Math.log2((hit.count||1)+1));
     ctx.beginPath(); ctx.arc(x+ww/2,y+hh/2,r,0,7);
-    ctx.fillStyle="#D7263D"; ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle="rgba(215,38,61,0.6)"; ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
   }
   // HUD
   const fail=DATA.params.fail;
