@@ -1,0 +1,14 @@
+# Model A — slicing-aided FINE-TUNE (Phase 2b fix). Trains from an existing detect checkpoint on the
+# SLICED detect set (640 tiles + original frames) so the detector sees objects at SAHI slice scale.
+# Pass the checkpoint with --model outputs/perception/detect_yolo11s_<ts>/weights/best.pt
+
+task: detect
+data: data/unified/detect_sliced/data.yaml   # produced by `python -m src.perception.slice_dataset`
+
+model: yolo11s.pt            # override at the CLI with the existing best.pt to fine-tune from it
+imgsz: 640                   # SAHI slice size (CLAUDE.md)
+final_epochs: 25             # fine-tune is shorter than the 60-epoch base run
+patience: 8                  # early-stop if val mAP stalls
+batch: 8                     # safe MPS batch (as in model_a.yaml)
+optimizer: auto
+seed: 0

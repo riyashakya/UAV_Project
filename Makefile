@@ -41,6 +41,9 @@ build-datasets:  ## Phase 1: unify source datasets -> data/unified/ (add --dry-r
 train-a:  ## Phase 2: train Model A (detect) locally -> outputs/perception/
 	$(UV) run python -m src.perception.train --config configs/perception/model_a.yaml $(ARGS)
 
+slice-dets:  ## Phase 2b: slice the detect set into 640 tiles for slicing-aided fine-tuning
+	$(UV) run python -m src.perception.slice_dataset $(ARGS)
+
 train-b:  ## Phase 2: train Model B (segment) locally -> outputs/perception/
 	$(UV) run python -m src.perception.train --config configs/perception/model_b.yaml $(ARGS)
 
