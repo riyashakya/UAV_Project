@@ -117,9 +117,10 @@ The adaptive auction **tracks the (1 − FN) ceiling**: because it recovers full
 survivors it loses are those the detector misses. Static partitioning sits a persistent ≈ 15–29 pts
 below the ceiling — survivors stranded in the cells it never re-surveys. This **separates two loss
 factors**: perception error is an irreducible floor no coordination can remove, whereas coverage loss
-is a coordination problem that re-tasking recovers. Perception studies typically assume perfect
-coordination and coordination studies assume perfect perception; measuring the coupling with a *real*
-detector-error knob is the methodological point of RQ5.
+is a coordination problem that re-tasking recovers. *(Honesty note: sweeping a detector false-negative
+rate against multi-robot detection/coordination is **not new** — see `related_work.md`. Present this
+as a competent, scenario-specific sensitivity analysis grounded in this project's own measured
+detector error, not as a novel study.)*
 
 ## 7. Probability-guided search (comparison with SARCPPF-style planners)
 

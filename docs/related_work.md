@@ -25,15 +25,20 @@ rigorous evaluation, and honest positioning. This document is the honest positio
 The individual methods are known; what is less common is the **specific combination and the
 controlled evaluation**. Candidate contributions, ranked by how defensible they are:
 
-- **(B) Perception × coordination sensitivity study — strongest & most buildable.** The decoupled
-  cached-oracle design lets the detector's *measured* false-negative rate be swept as a controlled
-  variable, quantifying how perception error propagates to coverage / survivors-found / time. The
-  literature typically isolates perception *or* coordination; studying the *coupling* with real
-  detector statistics is an empirical gap. Uses the existing `make sweep` + oracle noise.
-- **(A) Video-estimated flow → drift — most novel-leaning.** Replace the *assumed* flow field with a
-  current estimated from the drone imagery (optical flow / LSPIV), bridging UAV hydrometry and SAR
-  drift. The two fields exist separately; connecting them for survivor drift + UAV re-tasking is not
-  in the results found. Realistically a proof-of-concept (needs water-surface video) + honest limits.
+- **(B) Perception × coordination sensitivity study.** The decoupled cached-oracle design lets the
+  detector's *measured* false-negative rate be swept as a controlled variable. **Honesty correction
+  (Aug 2026 re-check):** sweeping a detector FN rate and studying its effect on multi-robot
+  detection/coordination *is* done in prior work (FN rates of ~0.2 are used, and detection
+  probability is known to fall ~linearly in FN). So this is **not a distinctive idea**; at most, the
+  modest angle is grounding FN in *this project's own measured* detector statistics and the
+  adaptive-vs-static coverage-recovery framing. Present as a competent sensitivity analysis, not a gap.
+- **(A) Video-estimated flow → drift.** Replace the *assumed* flow field with a current estimated
+  from the drone imagery (optical flow / LSPIV). **Honesty correction:** drone-video current
+  estimation is well established (hydrology/LSPIV; a 2026 drone-wave ocean-current method), UAV
+  real-time water segmentation + surface-velocity sensors exist (RivAIr), and SAR already
+  *conceptually* uses current + elapsed time to predict a drowning victim's location. So this is
+  **less novel than earlier claimed** — at best an under-explored *engineering integration* into a
+  UAV re-tasking loop, and a proof-of-concept only. Verify carefully before any novelty claim.
 - **(C) Adapting maritime SAROPS drift to *inland flood* UAV re-tasking** — an integration/adaptation
   claim, evidenced by the RQ4 result (`make rq4`: search the 90% drift zone locates 88% vs 0% for
   the stale sighting). Position as adaptation, not a new drift algorithm.
@@ -41,6 +46,31 @@ controlled evaluation**. Candidate contributions, ranked by how defensible they 
   mismatch); a reportable empirical result for survivor detection.
 - **(E) Reproducible benchmark** — the decoupled, seeded, CPU-only Monte-Carlo harness as an open,
   reusable benchmark for coordination-under-failure with realistic perception (tools/reproducibility).
+
+## Closest prior art (found on Aug 2026 re-check — READ THESE; cite as the nearest neighbours)
+
+An honest re-check found integrated frameworks very close to this project. Do not describe the
+integration itself as distinctive.
+
+- **[AI-Enhanced UAV Clusters for SAR in Natural Disasters (Algorithms, 2026)](https://doi.org/10.3390/a19010031)**
+  — the nearest neighbour: integrates **YOLOv8 human detection** (VisDrone weights — the same data
+  this project uses) + **multi-UAV routing/coordination** + **lawnmower coverage** in **simulation**
+  (100 % coverage of a 17.6 km² area with 16 UAVs). This is essentially the same detection +
+  coordination + coverage/routing pipeline. The project's honest deltas versus it are *incremental*:
+  the **drift → re-tasking** loop, the **hazard-weighted routing** and **decoupled controlled
+  perception-error study**, the **inland-flood** framing, and the honest negative findings.
+- **[Comparative Evaluation of YOLO for Human Position Recognition with UAVs During a Flood](https://doi.org/10.3390/asi9010006)**;
+  **[Real-Time SAR small-object YOLO detection (Drones, 2025)](https://doi.org/10.3390/drones9080514)**
+  — flood/UAV YOLO survivor detection is well trodden.
+- **[Multi-UAV Flood Monitoring coverage control (2025)](https://arxiv.org/pdf/2510.19548)** — multi-UAV
+  flood-region coverage.
+- FN-rate sensitivity in multi-robot search/coordination: see the multi-robot performance-prediction
+  and adversarial-perception literature (§ table).
+
+**Implication for positioning:** this is best framed as an **integration-and-evaluation study** that
+combines and rigorously compares established components in an inland-flood UAV context, with a few
+incremental additions — *not* as a novel framework. An MSc can absolutely be that; the marks come
+from rigour, critical analysis, and honest positioning, not from a novelty claim.
 
 ## How to phrase it in the dissertation
 
