@@ -26,7 +26,8 @@ Two properties make the results defensible:
 | RQ3 — perception domain gap & small-object difficulty | §2 | `make eval-perception` |
 | RQ4 — drift-driven re-tasking | §5 | `make rq4` |
 | RQ5 — decoupling as methodology (enables §6) | §1, §6 | `make sensitivity` |
-| RQ6 — hazard-aware routing | §7 | `make routes`, `make routes-osm` |
+| Probability-guided vs uniform search (SARCPPF comparison) | §7 | `make search-order` |
+| RQ6 — hazard-aware routing | §8 | `make routes`, `make routes-osm` |
 
 ## 2. Perception (RQ3)
 
@@ -120,7 +121,27 @@ is a coordination problem that re-tasking recovers. Perception studies typically
 coordination and coordination studies assume perfect perception; measuring the coupling with a *real*
 detector-error knob is the methodological point of RQ5.
 
-## 7. Hazard-aware routing (RQ6)
+## 7. Probability-guided search (comparison with SARCPPF-style planners)
+
+Probability-map planners for SAR (e.g. Wu et al., 2024, deep-RL persons-in-water coverage) search the
+most-likely-to-contain-a-survivor cells first; a uniform sweep does not. This project adds a
+lightweight alternative — a guided ordering that visits the nearest high-prior cell first (reusing the
+auction bid) — and quantifies its value against a travel-efficient uniform boustrophedon sweep. One
+searcher, clustered survivors, an **imperfect** prior probability map, 30 seeds
+(`make search-order`; figure `outputs/runs/search_*/search_order.png`).
+
+| Policy | Time to locate 80 % of survivors |
+|---|--:|
+| Uniform sweep | 14.2 min |
+| **Probability-guided** | **9.6 ± 0.1 min** |
+
+Guided search locates survivors ≈ **1.5× faster** when an informative prior is available; critically,
+the advantage **vanishes as the prior degrades** (with a uniform prior it is no better than the sweep),
+so the result measures the *value of prior information* rather than a rigged comparison. This answers
+the main advantage of learned probability-map planners without a learned policy, and connects
+directly to the drift model — the drift-containment zone (§5) is itself a survivor-likelihood prior.
+
+## 8. Hazard-aware routing (RQ6)
 
 Segmentation hazards fold into a road graph (`road_blocked` removes edges; `water`/`building_damaged`
 raise edge risk); sweeping the risk weight traces the **Pareto front** of distance vs cumulative
@@ -136,7 +157,7 @@ risk — a menu of routes, not one compromise.
 *Positioning:* hazard-weighted shortest-path routing is standard; the contribution is folding the
 *segmentation outputs* into the cost and reporting the trade-off explicitly.
 
-## 8. Threats to validity / limitations (honest)
+## 9. Threats to validity / limitations (honest)
 
 - **Assumed flow field.** Drift uses an analytic current from config, not one estimated from the
   drone imagery — the largest modelling assumption (estimating it from video is the proposed
@@ -156,7 +177,7 @@ risk — a menu of routes, not one compromise.
   [`related_work.md`](related_work.md)); the contribution is integration, controlled evaluation, and
   the decoupling methodology.
 
-## 9. Summary
+## 10. Summary
 
 | RQ | Finding |
 |---|---|
@@ -166,3 +187,4 @@ risk — a menu of routes, not one compromise.
 | RQ4 | Drift-aware search locates the survivor **88 % vs 0 %** (error 108 m vs 897 m). |
 | RQ5 | Decoupling enables the perception × coordination sensitivity study — the auction tracks the (1 − FN) ceiling. |
 | RQ6 | Hazard-weighted routing yields a distance-vs-risk Pareto front on both synthetic and **real OSM** road networks. |
+| SARCPPF | Probability-guided search locates 80 % of survivors **1.5× faster** than a uniform sweep (9.6 vs 14.2 min), with the gain scaling with prior quality. |
