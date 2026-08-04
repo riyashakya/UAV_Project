@@ -71,6 +71,9 @@ sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/ru
 search-order:  ## Probability-guided vs uniform search: time-to-locate -> outputs/runs/search_*/
 	$(UV) run python -m src.eval.search_order
 
+benchmark:  ## Option A: adaptive pipeline vs static baseline head-to-head -> outputs/runs/benchmark_*/
+	$(UV) run python -m src.eval.benchmark
+
 coverage-compare:  ## Phase 5: lawnmower vs spiral coverage path length -> outputs/runs/coverage_*/
 	$(UV) run python -m src.eval.coverage_compare
 

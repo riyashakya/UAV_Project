@@ -29,6 +29,28 @@ Two properties make the results defensible:
 | Probability-guided vs uniform search (SARCPPF comparison) | §7 | `make search-order` |
 | RQ6 — hazard-aware routing | §8 | `make routes`, `make routes-osm` |
 
+### Headline benchmark — adaptive pipeline vs a static baseline (`make benchmark`)
+
+The consolidating result. In one controlled scenario (clustered survivors, an imperfect prior, a UAV
+failure, detector false-negatives), this project's **adaptive** pipeline (auction reallocation +
+probability-guided search) is compared head-to-head against a faithful **static baseline** — the class
+of integrated static-lawnmower UAV-SAR systems (e.g. AI-Enhanced UAV Clusters, 2026): fixed partition,
+uniform sweep, no reallocation, no probability guidance. 30 seeds, mean ± 95 % CI
+(`outputs/runs/benchmark_*/benchmark.png`).
+
+| Metric | Static baseline | Adaptive pipeline |
+|---|--:|--:|
+| Area covered | 78 % | **100 %** |
+| Survivors detected | 68 % | **89 %** |
+| Time to locate 80 % of survivors | 25.9 min | **4.2 min** |
+
+The adaptive pipeline covers **+22 pts** more, detects **+21 pts** more survivors, and locates 80 % of
+them **6.1× faster**. This is **not** a claim to beat the state of the art — it is a controlled,
+apples-to-apples demonstration that the integrated adaptive components outperform a reproduced static
+baseline under realistic stress. Honest nuance: the survivor-detection gap has wide variance because
+survivors are clustered — the baseline only loses survivors when a failure strikes the survivor-dense
+sector; the coverage and time-to-locate advantages are robust.
+
 ## 2. Perception (RQ3)
 
 Two YOLO11s models were trained locally (Apple-Silicon M4, 640 px, 60 epochs): **Model A** (detect:

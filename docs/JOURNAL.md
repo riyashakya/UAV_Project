@@ -11,6 +11,33 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-04 — Option A: controlled head-to-head benchmark (adaptive pipeline vs static baseline)
+
+- **Request:** after the honest re-check (the project is integration-and-evaluation, not novel), make
+  a defensible *performance* result. Option A: reproduce the static-SOTA class as a baseline in our
+  own simulator and show the integrated adaptive pipeline beats it under realistic stress. (Option C —
+  compound perception+failure robustness — re-checked and dropped: it is established, not a gap.)
+- **Summary:** `src/eval/benchmark.py` (`make benchmark`) compares two systems on ONE controlled
+  scenario (clustered survivors + imperfect prior + a UAV failure + detector FN): **baseline** =
+  static partition + uniform sweep, no reallocation/guidance; **adaptive** = auction reallocation +
+  probability-guided search. Reports **coverage**, **survivors detected**, and **time-to-locate 80 %**,
+  mean ± 95 % CI, as a bar chart + table.
+- **Root cause / motivation:** turns the scattered per-feature results (sweep/rq4/search-order) into a
+  single apples-to-apples "our system vs a faithful static baseline under realistic conditions" story
+  — the strongest honest claim an integration-and-evaluation MSc can make (not "beats the field").
+- **Solution / why:** reuses the engine + Coordinator flags (`greedy_priority`, reallocation) + the
+  clustered-survivor generator — no new mechanism. Baseline gets a uniform prior (no probability map);
+  adaptive gets the imperfect prior. Dataset-free (synthetic detections) so the test runs anywhere.
+- **Files changed:** `src/eval/benchmark.py` (new), `configs/eval/benchmark.yaml` (new),
+  `tests/test_benchmark.py` (new), `Makefile`, `docs/`.
+- **Status:** ✅ done. Headline (30 seeds, one UAV failure, clustered survivors): the adaptive
+  pipeline beats the static baseline by **+22 coverage pts (100 % vs 78 %)**, **+21 survivors-detected
+  pts (89 % vs 68 %)**, and locates 80 % of survivors **6.1× faster (4.2 vs 25.9 min)**. Honest nuance
+  surfaced: the survivor-detection gap has wide variance because survivors are clustered — the
+  baseline only loses survivors when the failure strikes the survivor-dense sector (so the test
+  asserts detection is *never worse*, strict only on average). Coverage and speed advantages are
+  robust. Dataset-free test; 95 tests total; no new mechanism (reuses `greedy_priority` + reallocation).
+
 ## 2026-08-04 — Probability-guided search ordering + experiment (addresses the SARCPPF gap)
 
 - **Request:** a gap vs Wu et al. (2024) SARCPPF — their planner searches high-survivor-probability
