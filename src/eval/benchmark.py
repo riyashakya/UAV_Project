@@ -1,19 +1,17 @@
-"""Option A — controlled head-to-head benchmark: adaptive pipeline vs a static-SOTA-class baseline.
+"""Ablation benchmark (Option A, corrected) — decompose the adaptive advantage.
 
-This makes no novelty claim. It reproduces the *static* class of integrated UAV-SAR systems (fixed
-partition + uniform sweep, no reallocation, no probability guidance — cf. AI-Enhanced UAV Clusters,
-2026) as a baseline in our own simulator, and compares it against this project's **adaptive**
-pipeline (auction reallocation + probability-guided search) on ONE controlled scenario under stress
-(clustered survivors + an imperfect prior + a UAV failure + detector false-negatives). Reports, mean
-± 95 % CI over seeds:
+The earlier single "adaptive vs static" comparison conflated two things and used an unfair capped
+metric. This version fixes both: it runs THREE systems under a UAV failure with **sparse** survivor
+hotspots (not one per cell), and reports the honest **detection curves** (survivors located vs time)
+plus a *reachable* threshold, so the reallocation effect and the guidance effect are separated:
 
-* **coverage** (area surveyed),
-* **survivors detected** (fraction of ground truth),
-* **time to locate 80 %** of the survivors.
+* **static** — fixed partition, uniform sweep, no reallocation (the static-SOTA baseline);
+* **auction** — reallocation on failure, uniform search (isolates reallocation);
+* **auction + guided** — reallocation + probability-guided search (isolates the added guidance).
 
     make benchmark
 
-CPU-only; reuses the engine + Coordinator flags + the clustered-survivor generator (no new method).
+CPU-only; reuses the engine + Coordinator flags — no new mechanism.
 """
 
 from __future__ import annotations
@@ -22,11 +20,12 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from omegaconf import OmegaConf
 
 from src.coordination.allocation import Coordinator
 from src.eval.runner import _failures
-from src.eval.search_order import _clustered_survivors, _detection_curve
+from src.eval.search_order import _detection_curve
 from src.sim.engine import run
 from src.sim.oracle import Oracle
 from src.sim.uav import UAV, UAVParams
@@ -34,11 +33,42 @@ from src.sim.world import World
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# The two systems compared: name -> (strategy, greedy_priority, uses the survivor-likelihood prior)
+# name -> (strategy, greedy_priority)
 SYSTEMS = {
-    "baseline (static + uniform sweep)": ("static_partition_no_realloc", False, False),
-    "adaptive (auction + guided search)": ("auction", True, True),
+    "static (no realloc)": ("static_partition_no_realloc", False),
+    "auction (realloc)": ("auction", False),
+    "auction + guided": ("auction", True),
 }
+
+
+def _hotspot_survivors(cfg) -> tuple[np.ndarray, pd.DataFrame]:
+    """Sparse survivors: a few Gaussian hotspots in different sectors, most cells empty."""
+    rows, cols = int(cfg.grid.rows), int(cfg.grid.cols)
+    sig = float(cfg.cluster_sigma)
+    dens = np.zeros(rows * cols)
+    for hr, hc in cfg.hotspots:
+        for r in range(rows):
+            for c in range(cols):
+                dens[r * cols + c] += np.exp(-((r - hr) ** 2 + (c - hc) ** 2) / (2 * sig**2))
+    counts = np.floor(dens / dens.sum() * int(cfg.survivors_total)).astype(int)
+    recs = []
+    for cid, n in enumerate(counts):
+        for k in range(int(n)):
+            recs.append(
+                {
+                    "scenario": "bench",
+                    "cell_id": cid,
+                    "class": "person",
+                    "confidence": 0.6,
+                    "lat": 29.75,
+                    "lon": -95.36,
+                    "bbox_utm": [0.0, 0.0, 1.0, 1.0],
+                    "source_image": f"{cid}_{k}.jpg",
+                    "model": "A",
+                    "synthetic_geo": True,
+                }
+            )
+    return counts, pd.DataFrame(recs)
 
 
 def run_benchmark(cfg, detections=None) -> dict:
@@ -46,7 +76,7 @@ def run_benchmark(cfg, detections=None) -> dict:
     counts, df = (
         (detections["counts"], detections["df"])
         if detections is not None
-        else _clustered_survivors(cfg, np.random.default_rng(0))
+        else _hotspot_survivors(cfg)
     )
     total = int(counts.sum())
     ncell = rows * cols
@@ -54,26 +84,25 @@ def run_benchmark(cfg, detections=None) -> dict:
     true_p = counts / counts.sum() if counts.sum() else np.ones(ncell) / ncell
     prior = (1 - noise) * true_p + noise * (np.ones(ncell) / ncell)
     prior = prior / prior.max() * 10.0
-    uniform = np.ones(ncell)
 
-    world = World(rows, cols, float(cfg.cell_size_m))
+    world = World(rows, cols, float(cfg.cell_size_m), priority=prior)
     uav_cfg = OmegaConf.merge(
         OmegaConf.load(REPO_ROOT / "configs/sim/uav.yaml"), {"battery_capacity_j": 5e7}
     )
     params = UAVParams.from_cfg(uav_cfg)
-    coord_cfg = OmegaConf.load(REPO_ROOT / "configs/coordination/default.yaml")
-    bw = coord_cfg.allocation.bid_weights
+    ccfg = OmegaConf.load(REPO_ROOT / "configs/coordination/default.yaml")
+    bw = ccfg.allocation.bid_weights
     bid_weights = (float(bw.travel), float(bw.energy), float(bw.priority))
-    boost = float(coord_cfg.allocation.priority_boost)
-    oracle = Oracle(df, "search", false_negative_rate={"person": float(cfg.person_fn)})
+    boost = float(ccfg.allocation.priority_boost)
+    oracle = Oracle(df, "bench", false_negative_rate={"person": float(cfg.person_fn)})
     duration_s = float(cfg.duration_min) * 60.0
     n_uavs = int(cfg.n_uavs)
     window = tuple(cfg.fail_window_s)
+    grid_t = np.linspace(0, duration_s, 200)
 
-    results = {}
-    for name, (strategy, greedy, use_prior) in SYSTEMS.items():
-        world.priority = prior.copy() if use_prior else uniform.copy()
-        cov, det, t80 = [], [], []
+    out = {}
+    for name, (strategy, greedy) in SYSTEMS.items():
+        cov, det, t50, curves = [], [], [], []
         for seed in range(int(cfg.n_seeds)):
             coord = Coordinator(
                 strategy,
@@ -99,21 +128,23 @@ def run_benchmark(cfg, detections=None) -> dict:
             ts, cum, found = _detection_curve(res["events"])
             cov.append(res["coverage"])
             det.append(found / total if total else 0.0)
-            # time to locate 80% of ALL ground-truth survivors (same denominator for both systems;
-            # a system that never reaches it — e.g. lost coverage — is capped at the mission end)
-            reached = ts[cum >= 0.8 * total] if (total and len(cum)) else np.array([])
-            t80.append(float(reached[0]) if len(reached) else duration_s)
+            frac = np.interp(grid_t, ts, cum / total, left=0) if len(ts) else np.zeros_like(grid_t)
+            curves.append(frac)
+            reached = ts[cum >= 0.5 * total] if (total and len(cum)) else np.array([])
+            t50.append(float(reached[0]) if len(reached) else duration_s)
 
-        def agg(v):
+        def mean_ci(v):
             v = np.asarray(v, dtype=float)
             n = len(v)
-            return {
-                "mean": float(v.mean()),
-                "ci": float(1.96 * v.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0,
-            }
+            return (float(v.mean()), float(1.96 * v.std(ddof=1) / np.sqrt(n)) if n > 1 else 0.0)
 
-        results[name] = {"coverage": agg(cov), "detect": agg(det), "t80": agg(t80)}
-    return {"total": total, "systems": results}
+        out[name] = {
+            "coverage": mean_ci(cov),
+            "detect": mean_ci(det),
+            "t50": mean_ci(t50),
+            "curve": np.mean(curves, axis=0),
+        }
+    return {"total": total, "grid_t": grid_t, "systems": out}
 
 
 def plot_benchmark(res: dict, out_path: Path) -> None:
@@ -122,32 +153,28 @@ def plot_benchmark(res: dict, out_path: Path) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    names = list(res["systems"])
-    colours = {names[0]: "#B85042", names[1]: "#1565C0"}
-    metrics = [("coverage", "area covered"), ("detect", "survivors detected")]
-    x = np.arange(len(metrics))
-    w = 0.36
-    fig, ax = plt.subplots(figsize=(7.8, 4.8))
-    for i, name in enumerate(names):
-        vals = [res["systems"][name][m]["mean"] * 100 for m, _ in metrics]
-        errs = [res["systems"][name][m]["ci"] * 100 for m, _ in metrics]
-        t80 = res["systems"][name]["t80"]["mean"] / 60
-        ax.bar(
-            x + (i - 0.5) * w,
-            vals,
-            w,
-            yerr=errs,
-            capsize=3,
-            color=colours[name],
-            label=f"{name} — 80% located at {t80:.1f} min",
+    t = res["grid_t"] / 60.0
+    colours = {
+        "static (no realloc)": "#B85042",
+        "auction (realloc)": "#E0A500",
+        "auction + guided": "#1565C0",
+    }
+    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    for name, s in res["systems"].items():
+        ax.plot(
+            t,
+            s["curve"] * 100,
+            lw=2.2,
+            color=colours.get(name, "#888"),
+            label=f"{name} (50% at {s['t50'][0] / 60:.1f} min, final {s['detect'][0] * 100:.0f}%)",
         )
-    ax.set_xticks(x)
-    ax.set_xticklabels([lab for _, lab in metrics])
-    ax.set_ylabel("percent")
-    ax.set_ylim(0, 108)
-    ax.set_title("Adaptive pipeline vs static baseline (clustered survivors, 1 UAV failure)")
-    ax.legend(fontsize=8, loc="lower center")
-    ax.grid(True, axis="y", alpha=0.3)
+    ax.axhline(50, color="#999", ls=":", lw=1)
+    ax.set_xlabel("mission time (min)")
+    ax.set_ylabel("survivors located (% of all survivors)")
+    ax.set_ylim(0, 100)
+    ax.set_title("Ablation: reallocation vs added guidance (sparse survivors, 1 UAV failure)")
+    ax.legend(fontsize=8, loc="lower right")
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150)
@@ -157,27 +184,27 @@ def plot_benchmark(res: dict, out_path: Path) -> None:
 def main() -> None:
     cfg = OmegaConf.load(REPO_ROOT / "configs/eval/benchmark.yaml")
     res = run_benchmark(cfg)
-    names = list(res["systems"])
-    base, adapt = res["systems"][names[0]], res["systems"][names[1]]
-
+    s = res["systems"]
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = REPO_ROOT / "outputs" / "runs" / f"benchmark_{ts}"
     out_dir.mkdir(parents=True, exist_ok=True)
     plot_benchmark(res, out_dir / "benchmark.png")
 
-    print(f"[benchmark] {res['total']} clustered survivors · {cfg.n_uavs} UAVs · {cfg.condition}")
-    for name in names:
-        s = res["systems"][name]
+    st, au, gu = s["static (no realloc)"], s["auction (realloc)"], s["auction + guided"]
+    print(f"[benchmark] {res['total']} sparse survivors · {cfg.n_uavs} UAVs · {cfg.condition}")
+    for name, v in s.items():
         print(
-            f"[benchmark] {name:38s} coverage {s['coverage']['mean'] * 100:4.0f}% · "
-            f"survivors {s['detect']['mean'] * 100:4.0f}% · 80% at {s['t80']['mean'] / 60:.1f} min"
+            f"[benchmark] {name:22s} coverage {v['coverage'][0] * 100:4.0f}% · "
+            f"detected {v['detect'][0] * 100:4.0f}% · 50% at {v['t50'][0] / 60:4.1f} min"
         )
-    d_cov = (adapt["coverage"]["mean"] - base["coverage"]["mean"]) * 100
-    d_det = (adapt["detect"]["mean"] - base["detect"]["mean"]) * 100
-    speed = base["t80"]["mean"] / adapt["t80"]["mean"] if adapt["t80"]["mean"] else float("nan")
     print(
-        f"[benchmark] adaptive vs baseline: +{d_cov:.0f} coverage pts, "
-        f"+{d_det:.0f} survivors pts, {speed:.1f}× faster to locate 80%"
+        f"[benchmark] reallocation gain (static→auction): "
+        f"+{(au['detect'][0] - st['detect'][0]) * 100:.0f} detected pts"
+    )
+    print(
+        f"[benchmark] guidance gain (auction→+guided):    "
+        f"+{(gu['detect'][0] - au['detect'][0]) * 100:.0f} detected pts, "
+        f"{au['t50'][0] / gu['t50'][0]:.1f}× faster to 50%"
     )
     print(f"[benchmark] wrote {out_dir}/benchmark.png")
 

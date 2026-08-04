@@ -1,15 +1,16 @@
-# Head-to-head benchmark (Option A): adaptive pipeline vs a static-SOTA-class baseline, in one
-# controlled scenario under realistic stress. No magic numbers in src/.
+# Ablation benchmark (Option A, corrected): static vs auction-only vs auction+guided, to decompose
+# how much of the advantage is generic reallocation vs the added probability guidance.
+# No magic numbers in src/. Survivors are SPARSE (a few hotspots) — not one in every cell.
 
 grid: { rows: 8, cols: 8 }
 cell_size_m: 200
-cluster_center: [6, 6]       # survivors clustered far from the NW base
-cluster_sigma: 1.4
+hotspots: [[6, 6], [1, 6], [6, 1]]   # 3 survivor hotspots in different sectors, far from the NW base
+cluster_sigma: 1.0                    # tight hotspots -> most cells are empty (realistic)
 survivors_total: 80
-prior_noise: 0.35            # the adaptive system's prior is informative-but-imperfect
-person_fn: 0.1              # detector false-negative rate (applies to both systems)
+prior_noise: 0.35                     # the guided system's prior is informative-but-imperfect
+person_fn: 0.1
 n_uavs: 4
-condition: one_fail          # one UAV fails mid-mission (stresses reallocation)
+condition: one_fail
 n_seeds: 30
 duration_min: 90
 fail_window_s: [20.0, 120.0]
