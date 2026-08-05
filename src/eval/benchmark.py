@@ -71,7 +71,7 @@ def _hotspot_survivors(cfg) -> tuple[np.ndarray, pd.DataFrame]:
     return counts, pd.DataFrame(recs)
 
 
-def run_benchmark(cfg, detections=None) -> dict:
+def run_benchmark(cfg, detections=None, prior=None) -> dict:
     rows, cols = int(cfg.grid.rows), int(cfg.grid.cols)
     counts, df = (
         (detections["counts"], detections["df"])
@@ -80,10 +80,12 @@ def run_benchmark(cfg, detections=None) -> dict:
     )
     total = int(counts.sum())
     ncell = rows * cols
-    noise = float(cfg.prior_noise)
-    true_p = counts / counts.sum() if counts.sum() else np.ones(ncell) / ncell
-    prior = (1 - noise) * true_p + noise * (np.ones(ncell) / ncell)
-    prior = prior / prior.max() * 10.0
+    if prior is None:  # default: an imperfect prior derived from the (noised) survivor density
+        noise = float(cfg.prior_noise)
+        true_p = counts / counts.sum() if counts.sum() else np.ones(ncell) / ncell
+        prior = (1 - noise) * true_p + noise * (np.ones(ncell) / ncell)
+    prior = np.asarray(prior, dtype=float)
+    prior = prior / prior.max() * 10.0 if prior.max() > 0 else np.ones(ncell)
 
     world = World(rows, cols, float(cfg.cell_size_m), priority=prior)
     uav_cfg = OmegaConf.merge(
@@ -147,7 +149,7 @@ def run_benchmark(cfg, detections=None) -> dict:
     return {"total": total, "grid_t": grid_t, "systems": out}
 
 
-def plot_benchmark(res: dict, out_path: Path) -> None:
+def plot_benchmark(res: dict, out_path: Path, title: str | None = None) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -172,7 +174,9 @@ def plot_benchmark(res: dict, out_path: Path) -> None:
     ax.set_xlabel("mission time (min)")
     ax.set_ylabel("survivors located (% of all survivors)")
     ax.set_ylim(0, 100)
-    ax.set_title("Ablation: reallocation vs added guidance (sparse survivors, 1 UAV failure)")
+    ax.set_title(
+        title or "Ablation: reallocation vs added guidance (sparse survivors, 1 UAV failure)"
+    )
     ax.legend(fontsize=8, loc="lower right")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()

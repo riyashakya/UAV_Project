@@ -55,6 +55,14 @@ time-to-locate gain from guidance. This is stated plainly rather than headlined 
 number. It is a controlled comparison against a reproduced static baseline — **not** a claim to beat
 the state of the art.
 
+**Confirmed on real data (`make benchmark-real`).** The same ablation, rerun on the **real detection
+distribution** (439 real YOLO person detections, real per-cell density and confidences) with a real,
+independent prior derived from the flood-water map (survivors were measured to sit *away* from water,
+corr ≈ −0.51 — they fled the flood), reproduces the decomposition: static 70 % → auction **90 %**
+(reallocation +20 pts) → auction+guided 90 % (guidance +0 pts, 1.3× faster). This grounds the finding
+in real perception outputs rather than an invented distribution. *Limitations kept: the
+georeferencing is synthetic and the study is simulation-only.*
+
 ## 2. Perception (RQ3)
 
 Two YOLO11s models were trained locally (Apple-Silicon M4, 640 px, 60 epochs): **Model A** (detect:

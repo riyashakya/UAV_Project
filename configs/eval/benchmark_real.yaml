@@ -1,0 +1,12 @@
+# Real-data grounding of the ablation: uses the REAL detection cache's survivor distribution and a
+# REAL flood-derived prior, on the flood_a 6x6 grid. Attacks the "synthetic scenario" weakness.
+
+scenario: flood_a
+grid: { rows: 6, cols: 6 }    # flood_a's real grid
+cell_size_m: 200
+person_fn: 0.1
+n_uavs: 4
+condition: one_fail
+n_seeds: 30
+duration_min: 90
+fail_window_s: [20.0, 120.0]

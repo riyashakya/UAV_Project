@@ -11,6 +11,28 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-05 — Real-data grounding of the ablation (attacks the synthetic-scenario weakness)
+
+- **Request:** ground one experiment in real georeferenced data. Assessed: a truly GPS-tagged SAR
+  dataset is not readily available (rare, hours–days). Feasible now: use the **real detection cache**
+  spatially. Time: ~30 min, no new requirements.
+- **Summary:** `src/eval/benchmark_real.py` (`make benchmark-real`) reruns the static/auction/guided
+  ablation on the **real** flood_a detection distribution — 439 real YOLO person detections, real
+  per-cell density (concentrated in the bottom rows, not uniform) and confidences — with a **real,
+  independent** search prior derived from the flood-water segmentation. Measured insight: survivors
+  sit *away* from water (corr ≈ **−0.51**), i.e. they fled the flood, so the prior is the **inverted
+  water map** (not the survivor locations → not circular).
+- **Result (30 seeds, 1 UAV failure):** the honest decomposition **holds on real data** — static 70 %
+  detected, auction **90 %** (reallocation **+20 pts**), auction+guided 90 % (guidance **+0** pts,
+  **1.3× faster** to 50 %). Confirms the synthetic finding: reallocation does the work; guided search
+  is a modest speed-up only.
+- **Honest limits (kept):** georeferencing is still synthetic; still simulation-only.
+- **Files changed:** `src/eval/benchmark.py` (prior + title params), `src/eval/benchmark_real.py`
+  (new), `configs/eval/benchmark_real.yaml` (new), `Makefile`, `docs/`.
+- **Note:** a `uv sync --extra perception` had dropped dev/geo from the venv; restored with
+  `uv sync --all-extras`. **Fine-tune install should be `uv sync --all-extras`, not `--extra
+  perception`** (the latter removes ruff/pytest/osmnx). 95 tests green.
+
 ## 2026-08-04 — Option A: controlled head-to-head benchmark (adaptive pipeline vs static baseline)
 
 - **Request:** after the honest re-check (the project is integration-and-evaluation, not novel), make

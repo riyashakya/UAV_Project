@@ -74,6 +74,9 @@ sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/ru
 search-order:  ## Probability-guided vs uniform search: time-to-locate -> outputs/runs/search_*/
 	$(UV) run python -m src.eval.search_order
 
+benchmark-real:  ## Ablation on the REAL detection distribution + flood-derived prior -> outputs/runs/
+	$(UV) run python -m src.eval.benchmark_real
+
 benchmark:  ## Option A: adaptive pipeline vs static baseline head-to-head -> outputs/runs/benchmark_*/
 	$(UV) run python -m src.eval.benchmark
 
