@@ -11,6 +11,45 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-05 — Vision-estimated flood current driving the drift model (the one "new" connection)
+
+- **Request:** after dropping the field-tool idea on safety grounds, add something genuinely new.
+  Chosen: estimate the flood **current from drone video** (image velocimetry) and drive the
+  survivor-drift prediction from the *measured* flow instead of an *assumed* one. This is the single
+  connection our own literature review flagged as un-made (the pieces exist; wiring them to
+  survivor-drift does not appear in the reviewed sources). See [[novelty-positioning]] — claim only
+  "novel integration / proof-of-concept", verify against literature before any stronger wording.
+- **Motivation:** the drift model (`src/drift/advect.py`) takes a `FlowField = (x,y)->(vx,vy)`
+  callable; today it is always an *assumed* analytic field (`make_flow_field`: uniform/channel/
+  radial). Estimating the field from imagery upgrades the drift's weakest input from assumed to
+  measured — a real methodological improvement, not packaging.
+- **Approach:** `src/perception/flow.py` — **PIV** (particle image velocimetry via FFT
+  cross-correlation between frames), **pure numpy, no OpenCV** (avoids a new dep); pixel→metric
+  conversion (metres_per_pixel, fps); build a `FlowField` from the sparse vector grid by
+  inverse-distance interpolation. A synthetic image-sequence generator with a **known ground-truth
+  flow** makes PIV testable and keeps the demo honestly labelled synthetic (no real flood video with
+  known current is available — the honest limitation). Offline/cached → respects ADR-001 (sim never
+  runs perception; it just consumes the field, exactly like detections).
+- **Deliverable:** `make flow-drift` — the **assumed vs measured vs true** drift comparison:
+  PIV recovery error vs truth, and drift-region localisation error when the forecast is driven by an
+  *assumed* (wrong) flow vs the *PIV-measured* flow. Tests-first in `tests/test_flow.py`.
+- **Result (200 seeds, synthetic flood-channel truth):** PIV recovers the current at **RMSE 0.24 m/s**
+  (mean true speed 2.0 m/s, 0° angular error) — and this matches real drone-LSPIV error (0.22–0.44 m/s,
+  literature). Driving the drift forecast from the **assumed** current locates the survivor **0%** of
+  the time (err 176±3 m); from the **PIV-measured** current, **82%** (err 28±2 m). Measuring the flow
+  cuts localisation error by 148 m.
+- **Honesty check (2 web searches):** drone PIV/LSPIV for currents is mature (hydrology/tidal energy);
+  SAR drift tools (OpenDrift, ocean models) and flood-SAR (observer headings) take currents from
+  *external* sources, not scene imagery. Did **not** find the exact PIV→victim-drift pipeline, but —
+  per [[novelty-positioning]] and my overclaim history — framed **only as an engineering improvement**
+  (assumed→measured flow), **not** a novel field contribution. Ground truth is synthetic (no real flood
+  video with a known current) — proof-of-concept only.
+- **Files:** `src/perception/flow.py`, `src/eval/flow_drift.py`, `configs/perception/flow.yaml`,
+  `tests/test_flow.py` (5 tests, +100 total green), `Makefile`. Pure numpy — no new dependency.
+- **Status:** done. Report future-work updated to reflect it is now prototyped.
+
+---
+
 ## 2026-08-05 — Real-data grounding of the ablation (attacks the synthetic-scenario weakness)
 
 - **Request:** ground one experiment in real georeferenced data. Assessed: a truly GPS-tagged SAR

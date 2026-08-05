@@ -68,6 +68,9 @@ drift:  ## Phase 7: draw the survivor-drift projection + containment -> outputs/
 rq4:  ## RQ4: quantify drift-aware search vs the stale sighting -> outputs/runs/rq4_<timestamp>/
 	$(UV) run python -m src.eval.rq4
 
+flow-drift:  ## Vision-estimated (PIV) vs assumed current for drift forecasting -> outputs/runs/flow_drift_*/
+	$(UV) run python -m src.eval.flow_drift
+
 sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/runs/sensitivity_*/
 	$(UV) run python -m src.eval.sensitivity
 

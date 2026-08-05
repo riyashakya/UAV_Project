@@ -1,0 +1,38 @@
+# Vision-estimated flood current -> survivor-drift forecast (make flow-drift).
+# Does driving the drift model from a current MEASURED off the drone video (PIV) beat driving it
+# from an ASSUMED current? No magic numbers in src/ — constants live here.
+#
+# Imaging scale is chosen so the per-frame surface motion is a few pixels (integer PIV resolves it):
+# px/frame = speed_m_s / (metres_per_pixel * fps). With mpp=1, fps=1 -> px/frame == speed in m/s.
+
+synth:
+  frame_px: [300, 300]         # imaged patch = 300 x 300 px
+  metres_per_pixel: 1.0        # -> images a 300 m x 300 m area
+  fps: 1.0                     # 1 frame / second
+  n_frames: 8                  # frames to cross-correlate
+  density: 0.05                # speckle fraction of the surface texture
+  noise: 0.02                  # additive sensor noise
+
+piv:
+  window_px: 40                # interrogation window
+  step_px: 20                  # 50% overlap
+
+# The REAL current (ground truth used only to synthesise the clip + score the forecast): a flood
+# channel, fast at the centreline, slack at the banks. Eastward (x); parabolic across y.
+true_flow: { type: channel, vmax: 3.0, axis_y: 150.0, half_width: 140.0 }
+
+# The ASSUMED current an analyst would guess WITHOUT measuring — too slow and a spurious southward
+# component. This is today's baseline (a hand-set analytic field).
+assumed_flow: { type: uniform, vx: 1.2, vy: 0.8 }
+
+# Survivor first sighted near the fast centreline, close to the west edge of the imaged patch.
+survivor_xy: [30.0, 150.0]     # (east, south) metres
+
+# Drift forecast (same knobs as RQ4).
+horizon_s: 90                  # rescue delay (s) before the search starts
+dt: 10.0                       # advection step (s)
+leeway_factor: 1.0             # survivor speed relative to the water (SAROPS leeway)
+k_h: 2.0                       # horizontal turbulent diffusivity (m^2/s)
+n_particles: 800               # prediction cloud size
+containment: 0.9               # search the 90% containment zone
+n_seeds: 200                   # Monte-Carlo repetitions for mean ± 95% CI

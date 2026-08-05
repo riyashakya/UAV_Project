@@ -74,6 +74,7 @@ their limitations, plainly.
   - 4.2 Coordination under UAV Failure
   - 4.3 Decomposing the Advantage: A Three-Way Ablation
   - 4.4 Drift-Aware Search Re-tasking
+  - 4.4a Measured versus Assumed Current for the Drift Forecast
   - 4.5 Perception × Coordination Sensitivity
   - 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
   - 4.7 Coverage-Pattern Comparison
@@ -908,6 +909,33 @@ drift-based search to the inland-flood UAV setting, evaluated quantitatively; it
 method, and the flow field is assumed rather than estimated from imagery, so the absolute drift distance is
 a property of the configured scenario.
 
+## 4.4a Measured versus Assumed Current for the Drift Forecast
+
+The drift result above depends on the flow field, which was an *assumed* input. A follow-on experiment
+(`make flow-drift`) replaces that assumption by *measuring* the current from the drone imagery with particle
+image velocimetry (PIV) — FFT cross-correlation of interrogation windows between successive frames — and
+driving the same drift forecast from the measured field instead. Because no real flood video with a known
+current was available, the experiment runs on a synthetic clip whose surface texture is advected by a known
+flood-channel current, which also provides the ground truth to score against; this is a proof of concept,
+not a field-validated result.
+
+PIV recovered the current at a root-mean-square error of 0.24 m/s against a mean true speed of 2.0 m/s, with
+no directional error — an accuracy in line with published drone-based velocimetry (roughly 0.22–0.44 m/s
+against surface drifters). The effect on the forecast is large. Driving the drift prediction from the
+*assumed* current located the survivor in 0% of 200 seeds, a mean 176 m from the true position; driving it
+from the *PIV-measured* current located them 82% of the time, a mean 28 m away.
+
+| Current driving the forecast | Located | Mean localisation error |
+|---|---|---|
+| assumed (hand-set, wrong) | 0% | 176 ± 3 m |
+| PIV-measured (from the video) | 82% | 28 ± 2 m |
+
+The honest reading is narrow: this is an engineering improvement to the drift component — swapping an assumed
+input for a measured one — not a new method, since both PIV and drift-based search are established. Its value
+is that it removes the drift model's least-defensible assumption and quantifies what that assumption was
+costing. The limitations (synthetic ground truth, no comparison yet against the external current forecasts
+operational tools use) are carried into the future work.
+
 ## 4.5 Perception × Coordination Sensitivity
 
 This experiment uses the decoupled design to do something the other experiments cannot: sweep the
@@ -1080,11 +1108,13 @@ that, grounding more of the coordination experiments on real georeferenced data 
 carries real GPS locations rather than the synthetic anchoring used here — would reduce the dependence on
 constructed scenarios that is the study's main internal-validity limitation.
 
-A genuinely under-explored integration, and the one the literature review found missing, is to estimate the
-flood current from the drone imagery itself, using optical flow or large-scale particle image velocimetry,
-and to feed that estimate into the drift model in place of the assumed flow. The individual techniques exist
-in hydrology and in computer vision, but the reviewed sources do not connect them to survivor-drift
-prediction, so even a proof of concept would be a real addition rather than a re-implementation. Further
+One improvement flagged in the review has since been prototyped (Section 4.4a): estimating the flood current
+from the drone imagery itself, by particle image velocimetry, and feeding that estimate into the drift model
+in place of the assumed flow. It should be read as an engineering improvement to the drift component rather
+than a new contribution to the field — drone image velocimetry and drift-based search are both established,
+and the honest limitation is that the proof of concept runs on a synthetic clip with a known current because
+no real flood video with a measured current was available. Extending it to real footage, and comparing
+against the external current forecasts that operational search tools use, is the natural next step. Further
 out, replacing the greedy single-item auction with a consensus-based bundle algorithm would allow the fleet
 to reason about groups of cells rather than one at a time, and would let the coordination results be
 compared against a stronger, still-standard baseline. Finally, packaging the framework as a small, open,
