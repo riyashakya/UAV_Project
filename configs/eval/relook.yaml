@@ -1,0 +1,21 @@
+# Re-look experiment (make relook): can coordination claw back the perception bottleneck by taking a
+# SECOND look at uncertain / high-prior cells, instead of covering new ground? And at what cost?
+# Refines the sensitivity finding (Section 4.5) that "coordination cannot fix a detection miss" —
+# it can, partially, bounded by how correlated the misses are. No magic numbers in src/.
+
+grid: { rows: 8, cols: 8 }
+cell_size_m: 200
+cluster_sigma: 1.2
+hotspots: [[2, 2], [5, 6], [6, 1]]   # sparse survivor clusters in different sectors
+survivors_total: 120
+
+fn: 0.4                 # detector single-look miss rate (weak, like this project's small-object regime)
+persistent_share: 0.3   # fraction of misses that are STRUCTURAL (never recovered by re-looking).
+                        #   0 = every miss is bad luck (re-looks fully recover); 1 = all misses are
+                        #   permanent (re-looks useless). This is the honesty knob — real detectors
+                        #   miss hard cases persistently, so 0 would be over-optimistic.
+coverage_factor: 1.5    # total look budget = coverage_factor x n_cells (allows some re-looks)
+looks: [1, 2, 3, 4]     # policies compared: looks given to each targeted cell (1 = cover-more baseline)
+prior_noise_levels: [0.0, 0.3, 0.6]   # search-prior quality: good / medium / poor (0 = knows the
+                        #   survivor cells, 1 = useless). Re-look should only help with a good prior.
+n_seeds: 200            # Monte-Carlo repetitions for mean +/- 95% CI

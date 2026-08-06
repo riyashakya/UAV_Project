@@ -11,6 +11,30 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-06 — Re-look experiment: can coordination claw back the perception bottleneck?
+
+- **Request:** build the re-look experiment (extend the §4.5 bottleneck finding). Also: user
+  challenged the federated "privacy cost" / "feed FL detector into §4.5" angles — I **retracted**
+  both (privacy-cost is the most standard FL result; the coupling-combo I hadn't verified). See
+  [[novelty-positioning]].
+- **Idea:** §4.5 says coordination can't fix a detection miss — but that assumed ONE look. Independent
+  re-looks drop the miss rate (≈FN^k), so coordination *might* partly beat the detector, at a coverage
+  cost. `src/eval/relook.py` (`make relook`) measures the trade-off. Honesty knob: `persistent_share`
+  = fraction of misses that are STRUCTURAL (never recovered) → not the over-optimistic FN^k. Detection
+  model `miss_after_looks` is pure + unit-tested. Reuses the benchmark survivor generator; the oracle
+  already gives independent draws per visit, so no engine change.
+- **Result (FN 0.4, persistent 0.3, budget 1.5x, 200 seeds) — conditional, honest:** re-look beats
+  cover-more **only with a good prior**. good prior → k=2 finds 79% vs 60% (**+19 pts**); medium → +1.5;
+  **poor prior → cover-more wins** (re-looks wasted on wrong cells). k≥3 hurts everywhere (coverage
+  sacrifice). Refines the bottleneck message: coordination can partly beat the detector, but only by
+  *spending a good prior* (which the drift model + hazard maps produce) — ties parts of the project
+  together. Report §4.5a + figure.
+- **Files:** src/eval/relook.py, configs/eval/relook.yaml, tests/test_relook.py (5 tests), Makefile,
+  docs/dissertation_report.md. **114 tests green, lint clean.**
+- **Status:** done.
+
+---
+
 ## 2026-08-06 — Augmentation pinning, lighting robustness, and starting Flower (federated)
 
 - **Request (3 parts):** (a) pin the training augmentation into the configs + report note; (b) build

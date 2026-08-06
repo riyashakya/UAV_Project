@@ -77,6 +77,7 @@ their limitations, plainly.
   - 4.4 Drift-Aware Search Re-tasking
   - 4.4a Measured versus Assumed Current for the Drift Forecast
   - 4.5 Perception × Coordination Sensitivity
+  - 4.5a Can Coordination Claw Back the Bottleneck by Looking Twice?
   - 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
   - 4.7 Coverage-Pattern Comparison
   - 4.8 Synthesis
@@ -1068,6 +1069,39 @@ None of this is a claim that the bottleneck idea is new — it is elementary, an
 the search-theory identity above. The only honest addition is that the split is measured here with a real
 detector's error profile, over a fault-tolerant coordination policy, in a reproducible testbed — an
 instantiation for a modern pipeline, not a new insight about the coupling.
+
+## 4.5a Can Coordination Claw Back the Bottleneck by Looking Twice?
+
+The sensitivity result says coordination cannot recover a survivor the detector misses. That is true
+for a single look, but it invites an obvious question: if a UAV takes a *second* look at an uncertain
+cell, does the effective miss rate fall enough to help? Two independent looks reduce the miss rate from
+the false-negative rate to roughly its square, so in principle coordination can attack the perception
+floor after all — at the cost of covering less new ground, and only for the misses that are bad luck
+rather than structural. A follow-on experiment (`make relook`) measures this trade-off. It is a focused
+Monte-Carlo study with a deliberately honest detail: a tunable share of misses is *persistent* (the
+survivor is occluded, too small, or under water, and no number of looks recovers them), so the model is
+not the over-optimistic "miss rate to the power of the number of looks". The re-look effect itself is
+classical search theory (detection rises with search effort); the point here is to measure it against
+this project's own bottleneck result.
+
+The finding is conditional, and that condition is the useful part. With a weak detector (40% miss rate)
+and a fixed look budget, re-looking beats covering more only when the search prior is good enough to
+know which cells to look at twice.
+
+| Search prior quality | Cover-more (1 look) | Best re-look | Verdict |
+|---|---|---|---|
+| good (noise 0) | 59.8% found | 79.0% (k=2) | re-look wins by +19 pts |
+| medium (noise 0.3) | 59.8% found | 61.3% (k=2) | marginal, +1.5 pts |
+| poor (noise 0.6) | 59.5% found | ~59.8% | cover-more wins |
+
+When the prior is good, a second look on the cells that matter lifts survivors found from 60% (the
+single-look ceiling) to 79%; when the prior is poor, the looks are wasted on the wrong cells and the
+coverage sacrificed is not repaid, so spreading a single look over the whole area is better. Pushing to
+three or four looks hurts in every case, because the coverage lost outweighs the shrinking detection
+gain. The practical reading refines the bottleneck message rather than overturning it: coordination can
+partly beat the detector, but only by spending a good prior — which is exactly what the drift model and
+the hazard maps in this project produce — so the value of re-looking is inseparable from the quality of
+the information guiding it.
 
 ## 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
 

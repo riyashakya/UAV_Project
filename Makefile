@@ -71,6 +71,9 @@ rq4:  ## RQ4: quantify drift-aware search vs the stale sighting -> outputs/runs/
 flow-drift:  ## Vision-estimated (PIV) vs assumed current for drift forecasting -> outputs/runs/flow_drift_*/
 	$(UV) run python -m src.eval.flow_drift
 
+relook:  ## Re-look vs cover-more: can coordination claw back the detection bottleneck? -> outputs/runs/relook_*/
+	$(UV) run python -m src.eval.relook
+
 lighting-robustness:  ## Detector mAP under bright/normal/dark val images -> outputs/runs/lighting_*/
 	$(UV) run python -m src.perception.lighting_eval
 
