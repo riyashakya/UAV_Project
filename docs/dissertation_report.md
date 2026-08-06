@@ -165,21 +165,28 @@ effect of perception error on coordination have all been studied.
 The gap is easier to see through a concrete example. There are only two reasons a survivor is not
 found in a drone search. Either a drone flew over them but the detector did not recognise them — a
 perception failure — or no drone ever reached them, for instance because one drone failed and its
-area was abandoned — a coverage failure. These two failures are studied by two research communities
-that rarely meet. Perception research measures the first while quietly assuming the drones cover
-everywhere; coordination research measures the second while quietly assuming the camera never misses.
-In a real flood both failures happen at once and interact, yet almost no work measures them together,
-as one controlled experiment, using a detector error rate taken from real data. That is the space this
-project works in: not building a better detector or a better coordination policy, but measuring the
-two as a single system and separating how much of a missed survivor is each side's fault.
+area was abandoned — a coverage failure. This distinction is not new, and it would be wrong to
+present it as such: it is the foundation of classical search theory, where the probability of finding
+a target is the probability of searching its location multiplied by the probability of detecting it
+once searched (Koopman, 1980; Stone, 1975). Coverage planning with an explicit, imperfect probability
+of detection is an established sub-field, and the effect of perception error on multi-robot
+coordination has been studied directly. So the coupling is well understood in theory. What is less
+common, and is where this project sits, is to drive that detection term not from an assumed analytical
+sensor model but from the measured error profile of a modern deep object detector, and to sweep it
+over a fault-tolerant coordination policy in a reproducible testbed. The project's role is therefore
+to instantiate and measure a known coupling for a modern learned-perception, market-based-coordination
+pipeline, and to separate how much of a missed survivor is each side's fault — not to claim the
+coupling as a discovery.
 
-The gap this project can honestly claim is narrower and is methodological. Perception research tends
-to report detector accuracy while assuming perfect coordination; coordination research tends to
-assume perfect perception. The decoupled cached-oracle design used here allows a real, measured
-detector false-negative rate to be swept as a controlled variable over the coordination layer, which
-few of the surveyed systems do directly. Alongside that, the project provides a reproducible, seeded,
-CPU-only testbed that runs the full pipeline (detection through coordination-under-failure to drift
-and routing) and reports results with confidence intervals and ablations. The gap, then, is a gap in
+The gap this project can honestly claim is narrow, and it is one of evaluation rather than of theory.
+Applied UAV search-and-rescue systems tend to report detector accuracy while assuming coordination is
+perfect, or report coordination performance while assuming perception is perfect; search theory couples
+the two but usually with an assumed, analytical detection model. The decoupled cached-oracle design
+used here lets the detector's *measured* false-negative rate be swept as a controlled input to the
+coordination layer, which the applied systems surveyed here rarely do with a real detector rate.
+Alongside that, the project provides a reproducible, seeded, CPU-only testbed that runs the full
+pipeline (detection through coordination-under-failure to drift and routing) and reports results with
+confidence intervals and ablations. The gap, then, is a gap in
 rigorous, controlled, reproducible evaluation of the perception–coordination coupling, not a gap in
 method. Naming the gap this precisely is itself part of the contribution, because it protects the
 work from the more common failure of claiming novelty that a reviewer can quickly disprove.
@@ -230,10 +237,13 @@ The project claims no new algorithm; every method it uses is established. Its co
 the integration, evaluation and reproducibility kind, which is the appropriate register for this
 work. Stated plainly, they are:
 
-1. **A controlled measurement of the perception–coordination coupling.** Using the decoupled oracle,
-   the real detector's miss-rate is treated as an adjustable input to the whole mission, so the loss
-   of survivors can be split into a perception part and a coverage part (Section 4.5). This is the
-   central contribution and the one the surveyed systems do not do directly.
+1. **A controlled measurement of the perception–coordination coupling for a modern pipeline.** The
+   coupling itself is classical — search theory has separated coverage from probability of detection
+   since the 1940s — so the contribution is the instantiation, not the idea: using the decoupled
+   oracle, the *measured* error profile of a real deep detector is swept as an input to a
+   fault-tolerant coordination policy, and the loss of survivors is split into a perception part and a
+   coverage part (Section 4.5). The value lies in grounding the detection term empirically and making
+   the split reproducible, not in the coupling, which is well established.
 2. **A quantified, honest evaluation of fault-tolerant coordination.** Auction reallocation is
    measured against a static partition and baselines across 1,800 seeded runs with confidence
    intervals, and an ablation decomposes the advantage into reallocation (large) and added guided
@@ -430,6 +440,18 @@ under adversarial conditions where an agent's observations may be corrupted or s
 for positioning: the coupling between perception error and coordination outcome is not unstudied, so
 the sensitivity study in this project is framed as a controlled analysis using a real measured error
 rate over an established coordination method, not as the discovery of the coupling.
+
+The deepest prior art for that coupling is classical search theory, which predates the robotics
+literature by decades. Koopman's wartime analysis of search operations (Koopman, 1980) and Stone's
+theory of optimal search (Stone, 1975) express the probability of finding a target as the product of a
+coverage term and a probability of detection, the latter typically an exponential function of search
+effort. Separating a coverage failure from a detection failure — the framing this project uses in
+Chapter 4 — is therefore inherent in search theory, and coverage-path planning with an explicit,
+imperfect probability of detection is an established extension of it. The honest consequence for this
+project is that neither the coupling nor its decomposition can be claimed as novel; what differs here
+is only that the detection term is taken from the measured error profile of a modern deep detector
+rather than an assumed analytical model, and is swept over a fault-tolerant coordination policy in a
+reproducible testbed. The contribution is an empirical instantiation, not a theoretical one.
 
 ## 2.5 Survivor Drift Prediction and Moving-Target Search
 
@@ -998,10 +1020,13 @@ close to the (1 − false-negative-rate) ceiling, because it recovers full cover
 the survivors the detector itself misses. The static partition sits a persistent 15 to 29 points below that
 ceiling across the sweep, because it loses coverage on top of losing detections. The experiment separates
 the two loss factors cleanly: perception error is an irreducible floor that no coordination policy can
-remove, whereas coverage loss under failure is a coordination problem that reallocation recovers. This is
-the one place the project does something few of the surveyed systems do directly, and it is a consequence
-of the decoupled design rather than of any new algorithm; the underlying idea of sweeping a false-negative
-rate is not itself novel, but wiring a real measured rate through to a coordination outcome is uncommon.
+remove, whereas coverage loss under failure is a coordination problem that reallocation recovers. The
+split itself is not new — classical search theory already writes the probability of finding a target as
+coverage multiplied by a probability of detection (Koopman, 1980), so separating a coverage failure from
+a detection failure is inherent in that framing. What the decoupled design adds is empirical: the
+detection term is the *measured* false-negative rate of a real deep detector rather than an assumed
+analytical model, swept over a fault-tolerant coordination policy, which the applied UAV search-and-rescue
+systems surveyed here rarely do.
 
 The result is best read as a diagnosis of where the bottleneck lies. Because the adaptive system already
 sits on the perception ceiling, improving the coordination further cannot raise the survivor-detection rate
@@ -1013,9 +1038,10 @@ coordination — and the sweep quantifies how much each is worth. Second, and mo
 method evaluated against a perfect detector will report an optimistic gain, because part of that gain
 disappears once a real detector's misses are put in front of it. The experiment therefore doubles as a
 caution: coverage improvements should be reported against a realistic perception floor, not a perfect one.
-None of this is a claim that the bottleneck idea is new — it is elementary — only that measuring the split
-cleanly, in this setting, with a real detector error rate, is what the separate perception and coordination
-literatures do not usually do.
+None of this is a claim that the bottleneck idea is new — it is elementary, and it follows directly from
+the search-theory identity above. The only honest addition is that the split is measured here with a real
+detector's error profile, over a fault-tolerant coordination policy, in a reproducible testbed — an
+instantiation for a modern pipeline, not a new insight about the coupling.
 
 ## 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
 
@@ -1301,7 +1327,9 @@ traceable to the exact values that produced it.
 - Boeing, G. (2017) 'OSMnx: New Methods for Acquiring, Constructing, Analyzing, and Visualizing Complex Street Networks', *Computers, Environment and Urban Systems*, 65, pp. 126–139.
 - Chowdhury, T. et al. (2023) 'RescueNet: A High Resolution UAV Semantic Segmentation Dataset for Natural Disaster Damage Assessment', *Scientific Data*, 10. arXiv:2202.12361.
 - Gerkey, B.P. and Matarić, M.J. (2004) 'A Formal Analysis and Taxonomy of Task Allocation in Multi-Robot Systems', *The International Journal of Robotics Research*, 23(9), pp. 939–954.
+- Koopman, B.O. (1980) *Search and Screening: General Principles with Historical Applications*. Pergamon Press. (foundational search theory; probability of detection — to confirm edition/pages)
 - Kratzke, T.M., Stone, L.D. and Frost, J.R. (2010) 'Search and Rescue Optimal Planning System', *13th International Conference on Information Fusion*. (to confirm)
+- Stone, L.D. (1975) *Theory of Optimal Search*. Academic Press. (coverage × probability of detection — to confirm edition/pages)
 - Rahnemoonfar, M. et al. (2021) 'FloodNet: A High Resolution Aerial Imagery Dataset for Post Flood Scene Understanding', *IEEE Access*. arXiv:2012.02951.
 - Sambolek, S. and Ivašić-Kos, M. (2021) 'Automatic Person Detection in Search and Rescue Operations Using Deep CNN Detectors', *IEEE Access*.
 - Smith, R.G. (1980) 'The Contract Net Protocol: High-Level Communication and Control in a Distributed Problem Solver', *IEEE Transactions on Computers*, C-29(12), pp. 1104–1113.
