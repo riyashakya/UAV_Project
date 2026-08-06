@@ -1,0 +1,17 @@
+# Federated detector training (make federated-train). Compares FedAvg vs FedProx against the
+# centrally-trained detector, over the natural non-IID source clients. No magic numbers in src/.
+# Needs the optional dependency: uv sync --extra federated (+ a GPU for a real run).
+
+data: data/unified/detect/data.yaml
+model: yolo11n.pt          # small model for federated (many rounds); raise to yolo11s for the final run
+sources: [visdrone, sard]  # one client per data source -> genuinely non-IID + imbalanced (6471 vs 1387)
+
+strategy: fedavg           # fedavg | fedprox
+proximal_mu: 0.1           # FedProx proximal strength (ignored by fedavg; see fed_train.py caveat)
+rounds: 10                 # federated communication rounds
+local_epochs: 1            # local epochs per client per round
+imgsz: 640
+batch: 8
+seed: 0
+
+out: outputs/perception/federated

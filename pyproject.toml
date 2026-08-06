@@ -40,6 +40,9 @@ perception = [
     "sahi>=0.11",
     "pycocotools>=2.0",   # COCO size-stratified AP (small/medium/large) for Phase 2b eval
 ]
+federated = [
+    "flwr>=1.7",          # Flower: simulated federated training (FedAvg/FedProx) of the detector
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.1",

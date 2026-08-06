@@ -11,6 +11,37 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-06 — Augmentation pinning, lighting robustness, and starting Flower (federated)
+
+- **Request (3 parts):** (a) pin the training augmentation into the configs + report note; (b) build
+  `make lighting-robustness` (mAP under bright/normal/dark); (c) start federated training with Flower
+  (FedAvg/FedProx). Standing instruction reinforced: **research before any claim, no overclaims, plain
+  words, improvement not novelty.** See [[novelty-positioning]].
+- **(a) Augmentation — no retraining.** Read the runs' `args.yaml` (authoritative record): the models
+  used the YOLO11 defaults (mosaic, hsv incl. `hsv_v=0.4` brightness, fliplr, scale, translate,
+  erasing). Pinned those exact values into `model_a.yaml`/`model_b.yaml`; `train.py` now passes them so
+  the config is the source of truth. Values equal what was applied ⇒ no retrain. Report §3.3 note added.
+- **(b) Lighting robustness — real result.** `src/perception/lighting_eval.py`: re-scores the trained
+  detector on the same val subset re-brightened. First run was SARD-biased (alphabetical limit);
+  fixed with a deterministic shuffle → representative 300-img sample, **normal 68.0% == whole-dataset
+  0.674** (consistency check). Finding: **robust to lighting** (dark −2.1, dim −0.6, bright −1.4) —
+  the `hsv_v` augmentation pays off — with **glare (×1.8) the weakness at −5.1 pts**. Report §4.1 table.
+- **(c) Flower — started, honestly scoped.** Web check first: FedAvg/FedProx-YOLO for UAV is
+  **established → NOT novel**; framed as a privacy-preserving way to improve the *bottleneck* the
+  project identified, on a real non-IID split (VisDrone 6471 vs SARD 1387). Built + tested the pure
+  parts (`partition.py` non-IID split, `fedavg.py` weighted averaging). `fed_train.py` is a Flower
+  scaffold, **not yet run** (needs `uv sync --extra federated` + GPU); FedProx proximal term into the
+  YOLO loop is the flagged remaining work. Plan + honest positioning in `docs/federated_plan.md`.
+- **Search-theory claim re-verified** (user asked): Koopman/ASWORG 1942–43, exponential detection
+  function; Stone 1975 (Lanchester Prize) → SAROPS basis. My "1940s" claim holds; cited.
+- **Files:** configs/perception/{model_a,model_b,lighting,federated}.yaml, src/perception/train.py,
+  src/perception/lighting_eval.py, src/perception/federated/*, tests/test_lighting.py,
+  tests/test_federated.py, Makefile, pyproject.toml (federated extra), docs/{dissertation_report,
+  federated_plan}.md. **109 tests green, lint clean.**
+- **Status:** (a) done · (b) done, real result · (c) started (scaffold + plan; full run needs GPU).
+
+---
+
 ## 2026-08-05 — Vision-estimated flood current driving the drift model (the one "new" connection)
 
 - **Request:** after dropping the field-tool idea on safety grounds, add something genuinely new.

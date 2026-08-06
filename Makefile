@@ -74,6 +74,9 @@ flow-drift:  ## Vision-estimated (PIV) vs assumed current for drift forecasting 
 lighting-robustness:  ## Detector mAP under bright/normal/dark val images -> outputs/runs/lighting_*/
 	$(UV) run python -m src.perception.lighting_eval
 
+federated-train:  ## Federated detector training (FedAvg/FedProx, non-IID by source). Needs: uv sync --extra federated
+	$(UV) run python -m src.perception.federated.fed_train
+
 sensitivity:  ## Contribution B: perception FN-rate x coordination -> outputs/runs/sensitivity_*/
 	$(UV) run python -m src.eval.sensitivity
 
