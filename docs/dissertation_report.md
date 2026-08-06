@@ -45,6 +45,7 @@ their limitations, plainly.
   - 1.2 Background and Context
   - 1.3 The Identified Gap
   - 1.4 Aim, Objectives and Research Questions
+  - 1.4a Statement of Contributions
   - 1.5 Methodology Overview
   - 1.6 Headline Findings
   - 1.7 Project Plan (Gantt Chart)
@@ -84,6 +85,7 @@ their limitations, plainly.
   - 5.2 Achievement Against Research Questions
   - 5.3 Limitations
   - 5.4 Future Work
+  - 5.4a What the Coupling Result Means, and What It Does Not
   - 5.5 Broader Significance
 - Chapter 6: Conclusion
   - 6.1 What This Dissertation Set Out to Do
@@ -160,6 +162,17 @@ multi-UAV routing in simulation (Karystinos and colleagues, 2026; full citation 
 Fault-tolerant reallocation on UAV failure, drift-aware search, probability-guided search and the
 effect of perception error on coordination have all been studied.
 
+The gap is easier to see through a concrete example. There are only two reasons a survivor is not
+found in a drone search. Either a drone flew over them but the detector did not recognise them — a
+perception failure — or no drone ever reached them, for instance because one drone failed and its
+area was abandoned — a coverage failure. These two failures are studied by two research communities
+that rarely meet. Perception research measures the first while quietly assuming the drones cover
+everywhere; coordination research measures the second while quietly assuming the camera never misses.
+In a real flood both failures happen at once and interact, yet almost no work measures them together,
+as one controlled experiment, using a detector error rate taken from real data. That is the space this
+project works in: not building a better detector or a better coordination policy, but measuring the
+two as a single system and separating how much of a missed survivor is each side's fault.
+
 The gap this project can honestly claim is narrower and is methodological. Perception research tends
 to report detector accuracy while assuming perfect coordination; coordination research tends to
 assume perfect perception. The decoupled cached-oracle design used here allows a real, measured
@@ -189,22 +202,52 @@ The objectives are:
 6. Evaluate the coordination layer with Monte-Carlo simulation, confidence intervals and ablations,
    including a controlled study of how perception error propagates to coordination outcomes.
 
-The research questions, refined during the work, are:
+Underneath all of this is one practical motivation: after a flood, how can a small team of drones
+help find survivors faster and get rescuers to them, and what makes the biggest difference to that
+outcome? The research questions are the concrete, answerable pieces of that motivation. They are
+phrased as problems a rescue team would recognise rather than as the methods used to answer them, so
+that each could honestly have come out negative.
 
-- **RQ1 (coordination).** Does auction-based dynamic reallocation improve area coverage and survivor
-  detection under UAV failure compared with a static partition and other baselines, and by how much?
-- **RQ2 (robustness).** How does the reallocation advantage depend on the number of UAVs, the number
-  of failures, and the detector false-negative rate?
-- **RQ3 (perception domain gap).** How much accuracy is lost when transferring survivor detection
-  from ordinary and search-and-rescue imagery into the disaster domain, and where does tiled
-  inference help or hurt?
-- **RQ4 (drift-driven re-tasking).** Does searching a survivor's predicted drift region locate them
-  better than searching the stale sighting? This is framed as an adaptation of maritime drift
-  modelling, not as a novel method.
-- **RQ5 (methodology).** Does decoupling perception from coordination yield valid, reproducible
-  evaluation, and does it enable a controlled study of perception error over coordination?
-- **RQ6 (routing).** Does folding segmentation hazards into a weighted road graph produce useful
-  distance-versus-risk rescue routes on synthetic and real networks?
+- **RQ1 (coverage under failure).** When a team of drones is searching and one fails partway through,
+  does its area simply go unsearched, or can the fleet reorganise so the whole area is still covered —
+  and how much difference does that make to survivors found?
+- **RQ2 (robustness).** How does that difference change with the number of drones, the number of
+  failures, and how often the detector misses?
+- **RQ3 (seeing survivors).** How reliably can survivors be spotted in drone imagery, where does
+  detection break down, and does slicing large images into tiles help or hurt?
+- **RQ4 (a moving survivor).** If a survivor is carried by floodwater, is it better to search where
+  they were last seen or where they are predicted to have drifted to? This is framed as an adaptation
+  of maritime drift modelling, not as a new method.
+- **RQ5 (where the effort should go).** When survivors are missed, how much of the loss is the
+  detector failing versus the drones not covering the ground — and can keeping perception separate
+  from coordination make that split measurable in the first place?
+- **RQ6 (reaching them safely).** Once a survivor's location is known, what is the safest route to
+  reach them across flooded, partly blocked roads, and how much longer is safe than shortest?
+
+## 1.4a Statement of Contributions
+
+The project claims no new algorithm; every method it uses is established. Its contributions are of
+the integration, evaluation and reproducibility kind, which is the appropriate register for this
+work. Stated plainly, they are:
+
+1. **A controlled measurement of the perception–coordination coupling.** Using the decoupled oracle,
+   the real detector's miss-rate is treated as an adjustable input to the whole mission, so the loss
+   of survivors can be split into a perception part and a coverage part (Section 4.5). This is the
+   central contribution and the one the surveyed systems do not do directly.
+2. **A quantified, honest evaluation of fault-tolerant coordination.** Auction reallocation is
+   measured against a static partition and baselines across 1,800 seeded runs with confidence
+   intervals, and an ablation decomposes the advantage into reallocation (large) and added guided
+   search (negligible for detection totals) — Sections 4.2 and 4.3.
+3. **Two reported negative findings.** Tiled inference reduced accuracy without fine-tuning, and
+   guided search added no detections. Trustworthy negative results are a genuine contribution.
+4. **An end-to-end integrated pipeline** spanning detection, coordination under failure, drift
+   prediction and hazard-aware routing — the widest coverage among the compared systems (Section 2.9),
+   even though no single component is new.
+5. **A reproducible, seeded, CPU-only testbed** — configuration-driven, one hundred tests, running
+   the full pipeline in minutes — that others could reuse to measure the same coupling.
+6. **An engineering improvement to the drift model:** replacing its assumed current with one measured
+   from the drone imagery by particle image velocimetry, shown to cut localisation error in a proof of
+   concept (Section 4.4a).
 
 ## 1.5 Methodology Overview
 
@@ -960,6 +1003,20 @@ the one place the project does something few of the surveyed systems do directly
 of the decoupled design rather than of any new algorithm; the underlying idea of sweeping a false-negative
 rate is not itself novel, but wiring a real measured rate through to a coordination outcome is uncommon.
 
+The result is best read as a diagnosis of where the bottleneck lies. Because the adaptive system already
+sits on the perception ceiling, improving the coordination further cannot raise the survivor-detection rate
+— the detector caps it. A simple test makes the point: improve the coordination and the final number does
+not move; improve the detector and it does. In this regime, then, the detector is the bottleneck and the
+coordination has effectively done its job. Two things follow, and both are useful. First, for anyone
+deploying such a system, the sensible place to spend limited effort is the detector, not ever-more-elaborate
+coordination — and the sweep quantifies how much each is worth. Second, and more pointed, a coordination
+method evaluated against a perfect detector will report an optimistic gain, because part of that gain
+disappears once a real detector's misses are put in front of it. The experiment therefore doubles as a
+caution: coverage improvements should be reported against a realistic perception floor, not a perfect one.
+None of this is a claim that the bottleneck idea is new — it is elementary — only that measuring the split
+cleanly, in this setting, with a real detector error rate, is what the separate perception and coordination
+literatures do not usually do.
+
 ## 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
 
 On the synthetic grid, folding hazards into the road graph and sweeping the risk weight produced a
@@ -1056,10 +1113,11 @@ RQ4, on drift-driven re-tasking, is answered: searching the predicted 90% zone l
 confirmation that the containment estimate is calibrated, and that the flow driving the drift is assumed
 rather than estimated.
 
-RQ5, on the methodology, is supported by construction and demonstrated in use: the decoupling is an
-enforced architectural invariant, and the sensitivity study of Section 4.5 is an experiment that only the
-decoupled design makes possible, which is the clearest evidence that the methodology delivers something
-beyond convenience.
+RQ5, on where the effort should go and whether the split is even measurable, is answered by the sensitivity
+study of Section 4.5, which only the decoupled design makes possible. It splits a missed survivor into a
+perception part and a coverage part, shows that reallocation recovers the coverage part but nothing recovers
+the perception part, and so identifies the detector as the bottleneck in this regime — a diagnosis of where
+improvement pays off, not merely a demonstration that the two are decoupled.
 
 RQ6, on hazard-aware routing, is answered on both a synthetic grid and a real London street network,
 producing usable distance-versus-risk Pareto fronts in both cases. Across all six questions, the recurring
@@ -1120,6 +1178,32 @@ to reason about groups of cells rather than one at a time, and would let the coo
 compared against a stronger, still-standard baseline. Finally, packaging the framework as a small, open,
 reproducible benchmark for the perception–coordination coupling would address the gap the recent literature
 repeatedly names, and would let others measure the same coupling on their own methods.
+
+## 5.4a What the Coupling Result Means, and What It Does Not
+
+One reading of the sensitivity result deserves to be stated carefully, because it is easy to overstate. The
+finding that the detector is the bottleneck should not be mistaken for the trivial advice "improve the
+detector" — everyone already knows detectors can be improved, and detector research is a large, active
+field. Two things make the result more than that.
+
+First, "the coordination has done its job" is a measured outcome, not an assumption. The study did not begin
+by assuming perfect coordination and then blaming the camera. It tested coordination across drone failures
+and found that reallocation reaches full coverage cheaply, so the coordination sits at its own ceiling. Only
+after establishing that could the remaining loss be attributed to perception. The direction of the argument
+matters: the coverage problem was shown to be solved before the perception problem was named as what is
+left.
+
+Second, the value is the split itself, and what it implies for effort. Perception researchers and
+coordination researchers each improve their own half while assuming the other is perfect, and neither
+measures where the marginal effort actually pays off for the whole mission. The sensitivity sweep is exactly
+that measurement: it says, for a given fleet, failure rate and detector quality, how many more survivors
+each kind of improvement buys. In the regime studied here it says, bluntly, that further coordination work
+is largely wasted and the detector is where the return is — and it quantifies that rather than asserting it.
+The same result carries a caution for the coordination literature: a coverage method evaluated against a
+perfect detector will report a gain that shrinks once a real detector is placed in front of it, so such
+gains should be reported against a realistic perception floor. The contribution is not the bottleneck idea,
+which is elementary, but the clean, controlled, reproducible measurement of the split in this domain using a
+real detector error rate.
 
 ## 5.5 Broader Significance
 
