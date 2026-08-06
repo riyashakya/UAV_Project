@@ -19,4 +19,25 @@ batch: 8                     # fixed batch: auto-batch (-1) is CUDA-only; 8 is a
 optimizer: auto
 seed: 0                      # explicit seed for reproducibility (CLAUDE.md)
 
+# Data augmentation (pinned to the values actually used — recorded in the run's args.yaml, which are
+# the Ultralytics YOLO11 detect defaults; no retraining needed, this only documents what was applied).
+# hsv_v provides the brightness/lighting variation evaluated by `make lighting-robustness`.
+augment:
+  hsv_h: 0.015               # hue jitter
+  hsv_s: 0.7                 # saturation jitter
+  hsv_v: 0.4                 # value/BRIGHTNESS jitter (+/-40%) -> some day/dark robustness
+  degrees: 0.0               # no rotation
+  translate: 0.1             # random shift
+  scale: 0.5                 # random zoom
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0                # no vertical flip (aerial up/down is meaningful)
+  fliplr: 0.5                # random horizontal flip
+  mosaic: 1.0                # 4-image mosaic
+  close_mosaic: 10           # disable mosaic for the last 10 epochs
+  mixup: 0.0
+  copy_paste: 0.0
+  erasing: 0.4               # random erasing
+  auto_augment: randaugment
+
 # NOTE: SAHI tiled inference is applied at EVAL / inference time (Phase 2-3), not training.

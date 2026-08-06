@@ -93,6 +93,10 @@ def main(argv: list[str] | None = None) -> None:
 
     from ultralytics import YOLO  # lazy: perception-only import (ADR-001)
 
+    # Augmentation is pinned in the config (values = the run's args.yaml). Passing it makes the
+    # config the source of truth; it equals the YOLO defaults already used, so no retrain is needed.
+    aug = OmegaConf.to_container(cfg.get("augment", {})) or {}
+
     model = YOLO(model_weights)
     model.train(
         data=data,
@@ -108,6 +112,7 @@ def main(argv: list[str] | None = None) -> None:
         name=run_name,
         exist_ok=False,  # never overwrite a previous run (CLAUDE.md)
         plots=True,
+        **aug,
     )
 
     metrics = model.val(device=device)  # keep val on the GPU (MPS), not CPU

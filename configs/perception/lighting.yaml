@@ -1,0 +1,18 @@
+# Lighting-robustness evaluation (make lighting-robustness).
+# Re-scores the detector on the SAME val set at several brightness levels, to test whether the
+# training-time brightness augmentation (hsv_v=0.4 in model_a.yaml) yields real day/dark robustness.
+# No retraining. No magic numbers in src/ — constants live here.
+
+data: data/unified/detect/data.yaml   # source dataset (its val split is re-brightened)
+weights: null                          # null -> auto-find newest outputs/perception/*detect*/weights/best.pt
+imgsz: 640                             # match training/eval resolution
+
+limit: 300                             # val images per lighting level (CPU-tractable; raise for a full run)
+
+# label, brightness multiplier. 1.0 = original; <1 darker; >1 brighter.
+factors:
+  - [dark, 0.5]
+  - [dim, 0.75]
+  - [normal, 1.0]
+  - [bright, 1.4]
+  - [glare, 1.8]

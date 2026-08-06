@@ -15,4 +15,21 @@ batch: 8                     # segmentation is heavier than detect; 8 is a safe 
 optimizer: auto
 seed: 0
 
+# Data augmentation (pinned to the values actually used — from the run's args.yaml; YOLO11-seg
+# defaults. Documenting only; no retraining needed.)
+augment:
+  hsv_h: 0.015               # hue jitter
+  hsv_s: 0.7                 # saturation jitter
+  hsv_v: 0.4                 # value/BRIGHTNESS jitter (+/-40%)
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  close_mosaic: 10
+  mixup: 0.0
+  copy_paste: 0.0
+  erasing: 0.4
+
 # NOTE: road_blocked is the minority class (2,643 vs ~6,600) — watch for class imbalance.

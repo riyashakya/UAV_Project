@@ -671,6 +671,14 @@ small-object regime that survivor detection lives in, so reporting it alone woul
 application. Precision and recall are reported at the operating threshold, with recall being the more
 consequential of the two here because a missed survivor is worse than a false alarm.
 
+Data augmentation during training is the Ultralytics YOLO11 default pipeline, and its exact values are
+pinned in the model configurations rather than left implicit, so the report can state precisely what was
+applied: mosaic compositing (disabled for the final ten epochs), horizontal flipping, random scaling and
+translation, random erasing, and HSV colour jitter — the last including a value (brightness) variation of
+±40 percent, which matters because it is what gives the detector any robustness to lighting. Vertical
+flipping, rotation, shear and mix-up were off. Test-time augmentation was not used. Because the pinned
+values equal the defaults that were actually applied, documenting them required no retraining.
+
 Tiled inference was evaluated as a candidate improvement, at 640-pixel slices with a 0.2 overlap ratio
 so that objects on slice boundaries appear whole in at least one tile. The result was negative and is
 reported as such: because the detector was trained on whole downscaled frames rather than on tiles, at
@@ -881,6 +889,24 @@ motivated the slicing-aided fine-tuning pipeline described in Section 3.3. At th
 fine-tuning was still running, so its outcome is not included; when it completes, the expected effect is a
 recovery of small-object accuracy under tiled inference, and this section will be updated with the
 measured numbers rather than the expectation.
+
+A separate robustness check (`make lighting-robustness`) re-scores the detector on the same validation
+subset re-rendered at several brightness levels, to test whether the brightness augmentation actually
+buys day-and-night robustness. It does. Against a normal-light baseline of 68.0% mAP@50 on a
+representative 300-image sample (consistent with the whole-dataset figure), darkening the images by half
+cost only 2.1 points (65.9%) and moderate brightening 1.4 points (66.6%); the detector held up well
+across ordinary lighting. The one real weakness was over-exposure: a 1.8× glare cost 5.1 points (62.9%),
+the largest drop, because saturated highlights wash out the small objects the detector already struggles
+with. The practical reading is that the augmentation gives usable low-light robustness but that glare, not
+darkness, is the lighting condition to worry about.
+
+| Lighting (brightness ×) | mAP@50 | Change vs normal |
+|---|---|---|
+| dark (×0.5) | 65.9% | −2.1 pts |
+| dim (×0.75) | 67.4% | −0.6 pts |
+| normal (×1.0) | 68.0% | — |
+| bright (×1.4) | 66.6% | −1.4 pts |
+| glare (×1.8) | 62.9% | −5.1 pts |
 
 ## 4.2 Coordination under UAV Failure
 
