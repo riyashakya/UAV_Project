@@ -81,6 +81,7 @@ their limitations, plainly.
   - 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
   - 4.7 Coverage-Pattern Comparison
   - 4.8 Synthesis
+  - 4.9 Comparison with Reported Systems and Positioning
 - Chapter 5: Discussion and Future Work
   - 5.1 Overview
   - 5.2 Achievement Against Research Questions
@@ -803,38 +804,24 @@ which is what the sensitivity study in Section 4.5 exploits. The same interface 
 could be replaced by a live detector that produces the same kind of records without changing anything
 downstream, so the decoupling is a deployment path as well as an evaluation convenience.
 
-Software verification is by an automated test suite of 95 tests that runs without a GPU or datasets in
-about two seconds, which keeps it fast enough to run before every change. The tests are the project's
-contract and were, in the main, written before the implementation they check, in the spirit of test-first
-development. They fall into a few kinds. Analytic acceptance tests check a component against a case with a
-known correct answer — for example, that zero-diffusion drift under a uniform flow displaces a particle
-by exactly velocity times time, or that a blocked edge is untraversable. A single end-to-end acceptance
-test encodes the project's core claim directly: a UAV fails mid-mission and the auction must recover to
-full coverage while the static partition must not. An architecture-guarding test fails the build if the
-simulator package imports the detector, enforcing ADR-001. A determinism test runs a scenario twice from
-the same seed and requires identical results. The remainder are per-module unit tests for the world, the
-UAV energy model, partitioning, coverage, the oracle, the metrics and the routing. Formatting and linting
-gate every change. Including the test suite in this report is deliberate: it is the evidence that the
-results are reproducible and that the code behaves as claimed, which is a professional expectation for
-software of this kind, and the categories are listed in Appendix B rather than dumped as code.
+Software verification is by an automated suite (over one hundred tests) that runs without a GPU or datasets
+in a few seconds, so it runs before every change. Most tests were written before the code they check. They
+include analytic acceptance cases with a known answer (zero-diffusion drift displaces a particle by exactly
+velocity times time; a blocked edge is untraversable); an end-to-end test of the core claim (a UAV fails and
+the auction must recover full coverage while the static partition must not); an architecture-guarding test
+that fails the build if the simulator imports the detector (ADR-001); a determinism test; and per-module
+unit tests. Formatting and linting gate every change. The suite is the evidence that the results are
+reproducible; categories are listed in Appendix B.
 
 ## 3.8 Evaluation Methodology
 
-The coordination layer is evaluated by Monte-Carlo simulation. The main sweep runs a full grid of five
-strategies by four UAV counts (one, two, four and six) by three failure conditions (none, one failure,
-two failures) by thirty independent seeds, for 1,800 runs, and completes in a few seconds on a CPU
-because perception is cached rather than recomputed. Failures are injected by choosing, for each seed,
-which UAVs fail and at what time within a fixed window, so that the failure timing varies across seeds but
-is reproducible within a seed. The primary metrics are coverage, the fraction of the area actually
-surveyed; survivors detected, the fraction of true survivors located; survey redundancy, the mean number
-of times cells are visited, which exposes wasteful revisiting; and time-based measures such as the time
-to locate a given fraction of survivors. Results are reported as a mean with a 95% confidence interval
-computed as
-
-    mean ± 1.96 · s / √n,
-
-where s is the sample standard deviation over the n seeds, so that a difference between two strategies can
-be read as significant or not rather than asserted from a single run.
+The coordination layer is evaluated by Monte-Carlo simulation. The main sweep runs five strategies by four
+UAV counts (one, two, four, six) by three failure conditions (none, one, two failures) by thirty seeds —
+1,800 runs — completing in a few seconds on a CPU because perception is cached. Failures are injected per
+seed (which UAVs fail, and when within a fixed window), so timing varies across seeds but reproduces within
+one. Metrics are coverage, survivors detected, survey redundancy (wasteful revisiting) and time-to-locate.
+Results are reported as a mean with a 95% confidence interval, `mean ± 1.96 · s / √n`, so differences can be
+read as significant or not rather than asserted from a single run.
 
 Separate, focused experiments address the individual research questions. The drift experiment compares
 searching the predicted 90% zone against searching the stale sighting over 300 seeds. The
@@ -1003,19 +990,15 @@ a property of the configured scenario.
 
 ## 4.4a Measured versus Assumed Current for the Drift Forecast
 
-The drift result above depends on the flow field, which was an *assumed* input. A follow-on experiment
-(`make flow-drift`) replaces that assumption by *measuring* the current from the drone imagery with particle
-image velocimetry (PIV) — FFT cross-correlation of interrogation windows between successive frames — and
-driving the same drift forecast from the measured field instead. Because no real flood video with a known
-current was available, the experiment runs on a synthetic clip whose surface texture is advected by a known
-flood-channel current, which also provides the ground truth to score against; this is a proof of concept,
-not a field-validated result.
-
-PIV recovered the current at a root-mean-square error of 0.24 m/s against a mean true speed of 2.0 m/s, with
-no directional error — an accuracy in line with published drone-based velocimetry (roughly 0.22–0.44 m/s
-against surface drifters). The effect on the forecast is large. Driving the drift prediction from the
-*assumed* current located the survivor in 0% of 200 seeds, a mean 176 m from the true position; driving it
-from the *PIV-measured* current located them 82% of the time, a mean 28 m away.
+The drift result above depends on the flow field, which was *assumed*. A follow-on experiment
+(`make flow-drift`) instead *measures* the current from the drone imagery by particle image velocimetry
+(PIV — FFT cross-correlation of interrogation windows between frames) and drives the same forecast from the
+measured field. No real flood video with a known current was available, so it runs on a synthetic clip whose
+texture is advected by a known current (which also gives the ground truth) — a proof of concept, not a
+field result. PIV recovered the current at 0.24 m/s RMSE against a 2.0 m/s mean speed with no directional
+error, in line with published drone velocimetry (~0.22–0.44 m/s). The effect is large: the *assumed* current
+located the survivor in 0% of 200 seeds (176 m off); the *measured* current located them 82% of the time
+(28 m off).
 
 | Current driving the forecast | Located | Mean localisation error |
 |---|---|---|
@@ -1055,38 +1038,27 @@ detection term is the *measured* false-negative rate of a real deep detector rat
 analytical model, swept over a fault-tolerant coordination policy, which the applied UAV search-and-rescue
 systems surveyed here rarely do.
 
-The result is best read as a diagnosis of where the bottleneck lies. Because the adaptive system already
-sits on the perception ceiling, improving the coordination further cannot raise the survivor-detection rate
-— the detector caps it. A simple test makes the point: improve the coordination and the final number does
-not move; improve the detector and it does. In this regime, then, the detector is the bottleneck and the
-coordination has effectively done its job. Two things follow, and both are useful. First, for anyone
-deploying such a system, the sensible place to spend limited effort is the detector, not ever-more-elaborate
-coordination — and the sweep quantifies how much each is worth. Second, and more pointed, a coordination
-method evaluated against a perfect detector will report an optimistic gain, because part of that gain
-disappears once a real detector's misses are put in front of it. The experiment therefore doubles as a
-caution: coverage improvements should be reported against a realistic perception floor, not a perfect one.
-None of this is a claim that the bottleneck idea is new — it is elementary, and it follows directly from
-the search-theory identity above. The only honest addition is that the split is measured here with a real
-detector's error profile, over a fault-tolerant coordination policy, in a reproducible testbed — an
-instantiation for a modern pipeline, not a new insight about the coupling.
+The result is best read as a diagnosis of where the bottleneck lies: because the adaptive system already
+sits on the perception ceiling, improving coordination further cannot raise the detection rate — improve
+the coordination and the number does not move, improve the detector and it does. In this regime the
+detector is the bottleneck and coordination has done its job. Section 5.4a develops what this does and does
+not imply; the honest addition here is only that the split is measured with a real detector's error profile,
+not that the coupling is new.
 
 ## 4.5a Can Coordination Claw Back the Bottleneck by Looking Twice?
 
-The sensitivity result says coordination cannot recover a survivor the detector misses. That is true
-for a single look, but it invites an obvious question: if a UAV takes a *second* look at an uncertain
-cell, does the effective miss rate fall enough to help? Two independent looks reduce the miss rate from
-the false-negative rate to roughly its square, so in principle coordination can attack the perception
-floor after all — at the cost of covering less new ground, and only for the misses that are bad luck
-rather than structural. A follow-on experiment (`make relook`) measures this trade-off. It is a focused
-Monte-Carlo study with a deliberately honest detail: a tunable share of misses is *persistent* (the
-survivor is occluded, too small, or under water, and no number of looks recovers them), so the model is
-not the over-optimistic "miss rate to the power of the number of looks". The re-look effect itself is
-classical search theory (detection rises with search effort); the point here is to measure it against
-this project's own bottleneck result.
+Section 4.5 says coordination cannot recover a survivor the detector misses — but that assumes a single
+look. If a UAV takes a *second* look at an uncertain cell, two independent looks cut the miss rate to
+roughly its square, so coordination can attack the perception floor after all, at the cost of covering
+less ground and only for misses that are bad luck rather than structural. A follow-on experiment
+(`make relook`) measures the trade-off, with an honest detail: a tunable share of misses is *persistent*
+(occluded, too small, under water — never recovered), so the model is not the over-optimistic miss-rate
+to the power of the number of looks. The effect is classical search theory; the point is to measure it
+against this project's bottleneck result.
 
-The finding is conditional, and that condition is the useful part. With a weak detector (40% miss rate)
-and a fixed look budget, re-looking beats covering more only when the search prior is good enough to
-know which cells to look at twice.
+The finding is conditional, and the condition is the useful part: with a weak detector (40% miss rate)
+and a fixed look budget, re-looking beats covering more only when the search prior is good enough to know
+which cells to look at twice.
 
 | Search prior quality | Cover-more (1 look) | Best re-look | Verdict |
 |---|---|---|---|
@@ -1094,14 +1066,10 @@ know which cells to look at twice.
 | medium (noise 0.3) | 59.8% found | 61.3% (k=2) | marginal, +1.5 pts |
 | poor (noise 0.6) | 59.5% found | ~59.8% | cover-more wins |
 
-When the prior is good, a second look on the cells that matter lifts survivors found from 60% (the
-single-look ceiling) to 79%; when the prior is poor, the looks are wasted on the wrong cells and the
-coverage sacrificed is not repaid, so spreading a single look over the whole area is better. Pushing to
-three or four looks hurts in every case, because the coverage lost outweighs the shrinking detection
-gain. The practical reading refines the bottleneck message rather than overturning it: coordination can
-partly beat the detector, but only by spending a good prior — which is exactly what the drift model and
-the hazard maps in this project produce — so the value of re-looking is inseparable from the quality of
-the information guiding it.
+A good prior lifts survivors found from 60% to 79%; a poor prior wastes the looks and the coverage
+sacrificed is not repaid; three or four looks hurt in every case. So coordination can partly beat the
+detector, but only by spending a good prior — exactly what the drift model and hazard maps produce — which
+makes re-looking's value inseparable from the quality of the information guiding it.
 
 ## 4.6 Hazard-Aware Routing (Synthetic and Real Networks)
 
@@ -1150,17 +1118,50 @@ counter-example.
 
 ## 4.8 Synthesis
 
-Taken together, the results support a modest and honest story. The coordination layer recovers coverage
-and survivor detection under failure, and this is quantified with confidence intervals across 1,800 runs.
-The advantage is driven by reallocation, an established capability, and the project-specific guided search
-adds little beyond a speed-up — a finding the ablation makes explicit and that holds on real data. The
-drift work shows a large benefit for searching the predicted zone over the stale sighting, with the caveat
-that part of the headline figure is a calibration check. The sensitivity study shows how perception error
-and coverage loss combine and separate. The perception is weak on small objects, which is stated rather
-than hidden, and tiled inference did not help without fine-tuning. The routing exposes a clean
-distance-versus-risk trade-off on a real street network. None of these results claims to beat the state of
-the art; each is a controlled measurement against internal baselines, which is what the project set out to
-provide.
+The results support a modest, honest story. Reallocation recovers coverage under failure (quantified with
+confidence intervals); the project-specific guided search adds little; the drift zone beats the stale
+sighting; the sensitivity study separates perception error from coverage loss; the perception is weak on
+small objects and tiled inference did not help without fine-tuning; and the routing exposes a clean
+distance-versus-risk trade-off on a real network. None of these claims to beat the state of the art — each
+is a controlled measurement against internal baselines, which is what the project set out to provide.
+
+## 4.9 Comparison with Reported Systems and Positioning
+
+A direct numerical comparison against prior systems is **not possible**, and saying so plainly is more
+honest than forcing one. The comparable systems report different metrics, on different domains and
+datasets, with no shared benchmark, and most release no code, so their headline numbers are not
+comparable to each other or to this work. The table below lists each system's *own* reported headline on
+its *own* setup; it should be read as evidence that the field lacks a common benchmark, not as a ranking.
+
+| System | Reported headline | Setup | Comparable? |
+|---|---|---|---|
+| This project | coverage under 2-UAV failure 100% vs 74.5%; drift-zone localisation 88% vs 0%; detector mAP@50 0.674 (small-object AP 0.26) | flood_a sim, 1,800 seeded runs, cached YOLO11 | — |
+| AI-Enhanced UAV Clusters (2026) | YOLOv8 mAP@50 98.4%, area coverage 100% | real imagery + sim, 17.6 km², 16 UAVs | no — different task/data |
+| Market-Based Replanning (2026) | 93% mission success at 25% UAV loss | SAR swarm sim | no |
+| Weight-Based Exploration (2020) | ~215% search-time reduction vs lawnmower (sim) | wilderness UAV team | no |
+| Bio-inspired Swarm (2025) | exploration score 0.67 (PSO) | PX4 + Gazebo | no |
+| SARCPPF (2024) | qualitative: prioritises high-probability regions | maritime, deep RL | no |
+
+The honest positioning follows from this. On any single capability the project does not lead: the
+detector is weaker than the accuracy figures others report on curated sets, and every method used is
+established. Where the project is distinctive is not one feature but the combination of three — breadth of
+integration, evaluation rigour, and reproducibility — and the specific, trustworthy findings that follow,
+including negative ones. That contrast is set out below.
+
+| Dimension | Typical comparable UAV-SAR work | This project |
+|---|---|---|
+| End-to-end breadth | usually one or two stages | widest: detection → coordination-under-failure → drift → routing |
+| Evaluation | a single headline number | seeded sweeps, 95% confidence intervals, ablations, negative findings, real-data grounding |
+| Perception–coordination coupling | each side assumes the other is perfect | a real measured detector miss-rate swept through coordination (§4.5) |
+| Robustness reported | clean-condition accuracy only | lighting degradation measured (glare the weakness, §4.1) |
+| Drift input | current from external forecasts or assumed | current measured from the drone video (§4.4a) |
+| Reproducibility | rarely reproducible | seeded, CPU, config-driven, one-command experiments, full test suite |
+| Novel algorithm | sometimes claimed | none — stated honestly |
+
+In one sentence: the detector is not the best and no method is new, but the pipeline is integrated more
+broadly than the comparable systems, evaluated more honestly and reproducibly, and it yields specific,
+trustworthy findings — including negative ones — that single-metric studies do not report. That is the
+sense in which the work is "better", and it is the sense appropriate to the level.
 
 ---
 
@@ -1229,19 +1230,12 @@ remain choices that affect the result. The georeferencing is synthetic throughou
 illustrative and the absolute drift distances belong to the configured scenario rather than to a real
 flood.
 
-The perception is weak in the regime that matters. Small-object average precision of 0.26 is the
-survivor-detection regime, and the person class is transferred across a measured domain gap because no
-disaster dataset labels survivors. Tiled inference did not help without fine-tuning, and the fine-tuning
-result is not yet available, so the perception section ends on a negative finding with a remedy pending
-rather than a positive one.
-
-The measured coordination advantage is generic. Reallocation under failure is established, and the ablation
-shows the project-specific guided search adds essentially nothing to detection totals. The drift result is
-partly a calibration check, and the flow field driving it is assumed, not estimated from imagery. Finally,
-and most importantly for how the work should be read, the project claims no novel method: the literature
-review found integrated UAV search-and-rescue frameworks and every individual component already
-established, so the contribution is integration, rigorous evaluation and the decoupled methodology, and the
-report is written to keep that claim honest.
+The perception is weak in the regime that matters: small-object average precision of 0.26 is the
+survivor-detection regime, the person class is transferred across a measured domain gap, and tiled inference
+did not help without fine-tuning (result still pending). The coordination advantage is generic — reallocation
+under failure is established and the ablation shows guided search adds little. Most importantly, the project
+claims no novel method: every component is established, so the contribution is integration, rigorous
+evaluation and the decoupled methodology, and the report is written to keep that claim honest.
 
 ## 5.4 Future Work
 
@@ -1252,56 +1246,34 @@ that, grounding more of the coordination experiments on real georeferenced data 
 carries real GPS locations rather than the synthetic anchoring used here — would reduce the dependence on
 constructed scenarios that is the study's main internal-validity limitation.
 
-One improvement flagged in the review has since been prototyped (Section 4.4a): estimating the flood current
-from the drone imagery itself, by particle image velocimetry, and feeding that estimate into the drift model
-in place of the assumed flow. It should be read as an engineering improvement to the drift component rather
-than a new contribution to the field — drone image velocimetry and drift-based search are both established,
-and the honest limitation is that the proof of concept runs on a synthetic clip with a known current because
-no real flood video with a measured current was available. Extending it to real footage, and comparing
-against the external current forecasts that operational search tools use, is the natural next step. Further
-out, replacing the greedy single-item auction with a consensus-based bundle algorithm would allow the fleet
-to reason about groups of cells rather than one at a time, and would let the coordination results be
-compared against a stronger, still-standard baseline. Finally, packaging the framework as a small, open,
-reproducible benchmark for the perception–coordination coupling would address the gap the recent literature
-repeatedly names, and would let others measure the same coupling on their own methods.
+The vision-estimated current prototyped in Section 4.4a should next be run on real flood footage and
+compared against the external current forecasts operational tools use. Replacing the greedy auction with a
+consensus-based bundle algorithm would give a stronger, still-standard coordination baseline. The re-look
+study (Section 4.5a) could be run inside the full engine rather than as a focused model. Finally, packaging
+the framework as a small, open, reproducible benchmark for the perception–coordination coupling would let
+others measure the same coupling on their own methods.
 
 ## 5.4a What the Coupling Result Means, and What It Does Not
 
-One reading of the sensitivity result deserves to be stated carefully, because it is easy to overstate. The
-finding that the detector is the bottleneck should not be mistaken for the trivial advice "improve the
-detector" — everyone already knows detectors can be improved, and detector research is a large, active
-field. Two things make the result more than that.
-
-First, "the coordination has done its job" is a measured outcome, not an assumption. The study did not begin
-by assuming perfect coordination and then blaming the camera. It tested coordination across drone failures
-and found that reallocation reaches full coverage cheaply, so the coordination sits at its own ceiling. Only
-after establishing that could the remaining loss be attributed to perception. The direction of the argument
-matters: the coverage problem was shown to be solved before the perception problem was named as what is
-left.
-
-Second, the value is the split itself, and what it implies for effort. Perception researchers and
-coordination researchers each improve their own half while assuming the other is perfect, and neither
-measures where the marginal effort actually pays off for the whole mission. The sensitivity sweep is exactly
-that measurement: it says, for a given fleet, failure rate and detector quality, how many more survivors
-each kind of improvement buys. In the regime studied here it says, bluntly, that further coordination work
-is largely wasted and the detector is where the return is — and it quantifies that rather than asserting it.
-The same result carries a caution for the coordination literature: a coverage method evaluated against a
-perfect detector will report a gain that shrinks once a real detector is placed in front of it, so such
-gains should be reported against a realistic perception floor. The contribution is not the bottleneck idea,
-which is elementary, but the clean, controlled, reproducible measurement of the split in this domain using a
-real detector error rate.
+The "detector is the bottleneck" finding should not be read as the trivial advice "improve the detector".
+Two things make it more. First, "the coordination has done its job" is a *measured* outcome, not an
+assumption: the study tested coordination across failures, found reallocation reaches full coverage cheaply,
+and only then attributed the remaining loss to perception — the coverage problem was shown solved before the
+perception problem was named. Second, the value is the split and what it implies for effort: the sweep says,
+for a given fleet, failure rate and detector quality, how many more survivors each kind of improvement buys,
+and here it says further coordination work is largely wasted while the detector is where the return is. It
+also cautions the coordination literature that a coverage method scored against a perfect detector reports a
+gain that shrinks once a real detector is in front of it. The contribution is not the bottleneck idea, which
+is elementary, but the clean, reproducible measurement of the split with a real detector error rate.
 
 ## 5.5 Broader Significance
 
-The broader significance is methodological rather than operational. The project shows that decoupling
-perception from coordination lets the two be evaluated properly and lets a real, measured perception error
-rate be treated as an input to coordination, which most work in either field does not do. It also shows the
-value of honest ablation in practice: the initial single-number benchmark overstated the advantage, and
-decomposing it revealed that the project-specific component contributes little to detection totals. That
-kind of self-correction is the point of rigorous evaluation, and a negative or deflating result that is
-trustworthy is arguably more useful to the field than an impressive one that is not. For a disaster-response
-application, where an overstated capability could cost lives if an operator over-trusts it, this stance is
-not only academically proper but ethically appropriate.
+The broader significance is methodological rather than operational: decoupling perception from coordination
+lets the two be evaluated together, with a real measured error rate as an input, which most work in either
+field does not do. It also shows the value of honest ablation — the initial single-number benchmark
+overstated the advantage, and decomposing it revealed the project-specific component adds little. In a
+disaster-response setting, where an overstated capability could cost lives if an operator over-trusts it, a
+trustworthy deflating result is more useful than an impressive but fragile one.
 
 ---
 
@@ -1318,27 +1290,22 @@ dismantle.
 
 ## 6.2 What Was Achieved
 
-An end-to-end, reproducible, seeded simulation framework was built and tested. Two perception models were
-trained and scored on real imagery, with accuracy reported by object size and by source so that the
-small-object weakness and the domain gap are visible rather than averaged away. An auction reallocation
-scheme and three baselines were implemented behind one interface, and their behaviour under UAV failure was
-quantified across 1,800 runs with confidence intervals. A three-way ablation decomposed the adaptive
-advantage, showed it to be reallocation rather than the added guidance, and confirmed the decomposition on
-the real detection distribution. A drift model adapted from maritime practice was shown to locate a drifted
-survivor far better than a stale sighting. Hazard-aware routing was demonstrated on both a synthetic grid
-and a real London street network. The whole system was positioned honestly against the closest prior art,
-and its limitations were stated in full.
+An end-to-end, reproducible, seeded framework was built and tested: two perception models scored on real
+imagery with accuracy broken down by object size and source; an auction reallocation scheme and three
+baselines whose behaviour under failure was quantified across 1,800 runs with confidence intervals; a
+three-way ablation that decomposed the advantage into reallocation (large) and guided search (negligible),
+confirmed on real data; a drift model that locates a drifted survivor far better than a stale sighting; and
+hazard-aware routing on a synthetic grid and a real London network. The system was positioned honestly
+against the closest prior art, with limitations stated in full.
 
 ## 6.3 Reflection on Learning
 
 The most valuable lesson was about honesty in evaluation. Early framing overstated the novelty and, in one
 case, the size of a result; checking the literature and decomposing the benchmark corrected both, and doing
 so improved the work rather than diminishing it. Building the software to a testable, seeded,
-configuration-driven standard was what made those corrections possible, because a result could be
-regenerated and trusted rather than defended from memory. The technical content — detection, task
-allocation, drift modelling, routing — was learned by integrating it, and the experience of finding that a
-carefully built component contributed little was itself instructive, since it is the kind of result that
-only appears when the evaluation is honest enough to admit it.
+configuration-driven standard made those corrections possible, because a result could be regenerated and
+trusted rather than defended from memory — and finding that a carefully built component contributed little
+was itself instructive, since that only surfaces when the evaluation is honest enough to admit it.
 
 ## 6.4 Final Statement
 
@@ -1360,15 +1327,11 @@ real-data version (`make benchmark-real`); and a single mission run (`make sim`)
 resolved configuration alongside its outputs into a timestamped directory, and every random source is
 seeded, so any figure can be reproduced from the recorded configuration and seed.
 
-**Appendix B — Software verification (test suite).** The 95-test suite runs without a GPU or datasets in
-about two seconds. The categories are: analytic acceptance cases (drift displacement under uniform flow,
-coverage completeness including the final flush line, blocked-edge untraversability); the core
-failure-recovery acceptance test (a UAV fails and the auction recovers full coverage while the static
-partition does not); the architecture-isolation test that forbids the simulator from importing the
-detector; a determinism test that a seed reproduces a run exactly; and per-module unit tests for the world,
-the UAV energy model, partitioning, coverage, the oracle, the metrics and the routing. Linting and
-formatting checks gate every commit. The suite is the evidence that the results are reproducible and that
-the code behaves as described; the code itself is in the repository.
+**Appendix B — Software verification (test suite).** The suite (over one hundred tests) runs without a GPU
+or datasets in a few seconds. Categories: analytic acceptance cases (drift displacement, coverage
+completeness, blocked-edge untraversability, the re-look and PIV detection models); the core failure-recovery
+acceptance test; the architecture-isolation test that forbids the simulator from importing the detector; a
+determinism test; and per-module unit tests. Linting and formatting gate every commit.
 
 **Appendix C — Configuration.** All parameters live in YAML files under `configs/` with provenance
 comments, including the grid geometry, the UAV energy model, the oracle noise rates, the auction bid
