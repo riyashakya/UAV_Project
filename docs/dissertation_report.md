@@ -32,9 +32,9 @@ where a static partition falls to 87.6% (one failure) and 74.5% (two failures). 
 shows this advantage is driven almost entirely by generic reallocation; the added probability-guided
 search contributes no extra detections and only a modest time-to-locate speed-up, and this
 decomposition holds when the ablation is grounded in the real detection distribution. Drift-aware
-search locates a drifted survivor 88% of the time against 0% for the stale sighting. Tiled inference
-scores worse by AP but, once fine-tuned, recovers more real survivors (recall) at a realistic operating
-threshold — a case of the metric having to match the mission. The report states these results, and
+search locates a drifted survivor 88% of the time against 0% for the stale sighting. A tiled-inference
+study became a lesson in evaluation: three metrics gave three answers, and only a full precision–recall
+sweep showed tiled and full-frame inference essentially tied. The report states these results, and
 their limitations, plainly.
 
 ---
@@ -251,10 +251,11 @@ work. Stated plainly, they are:
    measured against a static partition and baselines across 1,800 seeded runs with confidence
    intervals, and an ablation decomposes the advantage into reallocation (large) and added guided
    search (negligible for detection totals) — Sections 4.2 and 4.3.
-3. **Honest, self-correcting findings.** Guided search adds no detections (a clean negative); and tiled
-   inference, which looks worse by AP, in fact recovers more real survivors once fine-tuned and judged by
-   recall at a realistic threshold (Section 4.1) — the evaluation was corrected when the metric was matched
-   to the mission. Trustworthy negative and self-corrected results are a genuine contribution.
+3. **Honest, self-correcting findings.** Guided search adds no detections (a clean negative); and a tiled
+   inference study (Section 4.1) where AP, single-point recall, and the full precision–recall frontier gave
+   three different answers — the frontier being the honest one (tiled ≈ full-frame; the fine-tune rescues
+   tiling to parity, not superiority). Trustworthy negative and self-corrected results are a real
+   contribution, and this arc shows the evaluation protocol matters as much as the method.
 4. **An end-to-end integrated pipeline** spanning detection, coordination under failure, drift
    prediction and hazard-aware routing — the widest coverage among the compared systems (Section 2.9),
    even though no single component is new.
@@ -286,8 +287,9 @@ detail.
   The decomposition held on the real detection distribution as well as the synthetic one.
 - Searching the predicted 90% drift zone located a drifted survivor 88% of the time within about
   108 m; searching the stale sighting located them 0% of the time (the survivor drifts about 893 m).
-- Tiled (SAHI) inference scores worse by AP, but the fine-tuned model with SAHI recovers more real
-  survivors (recall 75.6% vs 70.1%) at a realistic operating threshold — the metric must match the mission.
+- On a full precision–recall sweep, tiled (SAHI) and full-frame inference are essentially tied for the
+  fine-tuned detector; the fine-tune's real effect is to rescue the tiled configuration to parity. AP and a
+  single recall point had each given a different, misleading answer — judge on the frontier.
 
 ## 1.7 Project Plan (Gantt Chart)
 
@@ -869,32 +871,34 @@ than on the generic urban UAV imagery, roughly 0.88 against 0.65 at 0.5 IoU. Bec
 labels survivors, the person class is trained on this non-disaster imagery and transferred, and that
 difference is the transfer cost the application pays.
 
-Tiled inference reduced accuracy rather than improving it — a train/inference scale mismatch (whole frames
-in training, 640-pixel slices at inference). This motivated the slicing-aided fine-tune of Section 3.3.
-By COCO AP the fine-tune appeared to fail — both models score the same full-frame (mAP@50 0.668 vs 0.665,
-so the higher *sliced*-set figure was an easier-evaluation artefact), and SAHI scored far below full-frame
+Tiled inference (SAHI) and the slicing-aided fine-tune of Section 3.3 turned out to be an instructive case
+in how the choice of metric can mislead, and it is worth reporting the three stages honestly. First, by
+COCO AP the fine-tune appeared to fail: both models score the same full-frame (mAP@50 0.668 vs 0.665, so
+the higher *sliced*-set figure was an easier-evaluation artefact), and SAHI scored far below full-frame
 (0.385 vs 0.668). But AP is computed at confidence 0.001, where SAHI's cross-tile merge is swamped by weak
-boxes — it measures a broken configuration, not the operating behaviour. The metric that matters for
-search-and-rescue is **recall at a realistic threshold** — how many real people are found. Measured that way
-(`make sahi-recall`, conf 0.25, IoU 0.5, balanced 100-image sample), the picture reverses:
+boxes — it measured a broken configuration. Second, re-scored by recall at a single realistic threshold
+(conf 0.25, 100 images), SAHI looked clearly *better* (fine-tuned SAHI recall 75.6% vs 70.1% full-frame).
+But that too was misleading: comparing two methods at the same confidence is unfair when their score
+distributions differ.
 
-| Model · inference | recall | precision |
+The honest comparison is the full precision–recall frontier, swept across confidence on the whole
+validation set (`make sahi-recall`; 944 images, 32,286 boxes, IoU 0.5). It settles the question, and more
+soberly than the single point:
+
+| Fine-tuned model · inference | recall at the high-recall end | recall at ~85% precision |
 |---|---|---|
-| base · full-frame | 70.2% | 75.0% |
-| base · SAHI | 71.9% | 66.5% |
-| fine-tuned · full-frame | 70.1% | 80.6% |
-| **fine-tuned · SAHI** | **75.6%** | 74.4% |
+| full-frame | 73.5% (precision 61%) | 63.1% |
+| SAHI | 74.5% (precision 55%) | 60.3% |
 
-Three honest readings follow. **SAHI helps recall** — it finds more real objects, most for the fine-tuned
-model (+5.5 points), because tiling recovers small objects a downscaled pass blurs. It **trades precision**
-for that recall (more false alarms), an acceptable trade for search-and-rescue, where a missed survivor is
-worse than a candidate a human dismisses. And **the fine-tune did its job after all**: fine-tuned+SAHI beats
-base+SAHI on *both* recall and precision, so tile training is what makes tiled inference usable. The
-preferred configuration is therefore fine-tuned + SAHI at a realistic threshold, not the AP-optimal
-full-frame — which corrects the first reading of these runs, that (by AP alone) had concluded the fine-tune
-did not help. The whole-curve AP still favours full-frame and this is a single-operating-point,
-100-image measurement, so a full sweep is the honest next step; but the direction is clear, and the lesson
-is that the metric must match the mission.
+Two findings hold up. **The fine-tune clearly rescues the tiled configuration**: fine-tuned SAHI dominates
+base SAHI across the entire frontier (the broken low-confidence behaviour is fixed). But **SAHI does not
+beat full-frame** — for the fine-tuned model the two curves essentially coincide, with full-frame marginally
+ahead in the useful mid-precision range and SAHI reaching only about one point higher maximum recall, at a
+real precision cost. So on this data — already-downscaled images (median object 40 px), not the tiny-object,
+native-high-resolution regime SAHI is built for — tiled inference gives no clear benefit, and full-frame
+remains the simpler, competitive choice. The methodological point is the takeaway: AP at a low threshold and
+recall at a single point pointed in opposite directions, and both were wrong; only the swept frontier
+answers the question. Judge on the frontier, not on one number.
 
 A separate robustness check (`make lighting-robustness`) re-scores the detector on the same validation
 subset re-rendered at several brightness levels, to test whether the brightness augmentation buys
@@ -1255,13 +1259,13 @@ evaluation and the decoupled methodology, and the report is written to keep that
 
 ## 5.4 Future Work
 
-Several directions would strengthen the work. The slicing-aided fine-tune and the SAHI operating-point
-analysis (Section 4.1) showed that fine-tuned tiled inference recovers more real survivors at a realistic
-threshold; a full recall/precision sweep across confidence thresholds and the whole validation set, rather
-than the focused 100-image operating-point sample, would confirm and quantify that. Better small-object
-training data remains the other route to lifting detection. Grounding more of the coordination experiments
-on real georeferenced data — ideally with real GPS locations rather than the synthetic anchoring used here —
-would reduce the dependence on constructed scenarios that is the study's main internal-validity limitation.
+Several directions would strengthen the work. The tiled-inference study (Section 4.1) showed that on this
+already-downscaled data SAHI does not beat full-frame; testing it on native high-resolution imagery, where
+objects are genuinely tiny, is the fair way to see whether tiling delivers the gain it is designed for.
+Better small-object training data remains the other route to lifting detection. Grounding more of the
+coordination experiments on real georeferenced data — ideally with real GPS locations rather than the
+synthetic anchoring used here — would reduce the dependence on constructed scenarios that is the study's
+main internal-validity limitation.
 
 The vision-estimated current prototyped in Section 4.4a should next be run on real flood footage and
 compared against the external current forecasts operational tools use. Replacing the greedy auction with a

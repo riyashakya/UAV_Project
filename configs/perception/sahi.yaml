@@ -7,10 +7,17 @@ finetuned_weights: outputs/perception/detect_best_20260805_041241/weights/best.p
 val_images: data/unified/detect/images/val
 val_labels: data/unified/detect/labels/val
 
-conf: 0.25          # realistic operating threshold (not 0.001) — this is the key point
+conf: 0.25          # realistic operating threshold (not 0.001) — single-point mode
 iou_match: 0.5      # standard localisation threshold for a hit
 imgsz: 640
 slice: 640          # SAHI slice size
 overlap: 0.2        # SAHI slice overlap
 
-sample: { visdrone: 60, sard: 40 }   # balanced subset (visdrone has the small objects)
+sample: { visdrone: 60, sard: 40 }   # balanced subset (single-point mode only)
+
+# Full-validation confidence sweep (the definitive view). One low-conf inference pass per config,
+# then recall/precision computed at each threshold post-hoc (cheap).
+sweep: true
+full_val: true                       # use ALL val images (ignore `sample`)
+base_conf: 0.1                        # single inference pass at this conf; thresholds applied on top
+sweep_thresholds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]

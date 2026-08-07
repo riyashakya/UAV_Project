@@ -84,26 +84,40 @@ def _load_gt(img_path: Path, labels_dir: Path) -> np.ndarray:
     return np.array(out) if out else np.zeros((0, 4))
 
 
-def _sample(images_dir: Path, counts: dict) -> list[Path]:
+def _sample(images_dir: Path, counts: dict, full: bool = False) -> list[Path]:
     imgs = sorted(images_dir.glob("*.jpg"))
+    if full:
+        return imgs
     picked = []
     for src, n in counts.items():
         picked += [p for p in imgs if p.name.startswith(src)][: int(n)]
     return picked
 
 
+def filter_boxes(boxes: np.ndarray, scores: np.ndarray, thr: float) -> np.ndarray:
+    """Keep boxes with score >= ``thr`` (so a sweep runs off one low-conf inference pass)."""
+    if len(boxes) == 0:
+        return boxes
+    return boxes[np.asarray(scores) >= thr]
+
+
 def _fullframe(weights, paths, conf, imgsz, device):
+    """Return per-image (boxes Nx4, scores N)."""
     from ultralytics import YOLO
 
     m = YOLO(str(weights))
     out = []
     for p in paths:
         r = m.predict(str(p), imgsz=imgsz, conf=conf, device=device, verbose=False)[0]
-        out.append(r.boxes.xyxy.cpu().numpy() if r.boxes is not None else np.zeros((0, 4)))
+        if r.boxes is None:
+            out.append((np.zeros((0, 4)), np.zeros(0)))
+        else:
+            out.append((r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy()))
     return out
 
 
 def _sahi(weights, paths, conf, imgsz, slice_px, overlap, device):
+    """Return per-image (boxes Nx4, scores N) from SAHI tiled inference."""
     from sahi import AutoDetectionModel
     from sahi.predict import get_sliced_prediction
 
@@ -125,8 +139,9 @@ def _sahi(weights, paths, conf, imgsz, slice_px, overlap, device):
             overlap_width_ratio=overlap,
             verbose=0,
         )
-        b = [o.bbox.to_xyxy() for o in res.object_prediction_list]
-        out.append(np.array(b) if b else np.zeros((0, 4)))
+        boxes = [o.bbox.to_xyxy() for o in res.object_prediction_list]
+        scores = [o.score.value for o in res.object_prediction_list]
+        out.append((np.array(boxes) if boxes else np.zeros((0, 4)), np.array(scores)))
     return out
 
 
@@ -149,13 +164,85 @@ def run_sahi_eval(cfg) -> dict:
         ff = _fullframe(w, paths, conf, imgsz, device)
         sh = _sahi(w, paths, conf, imgsz, int(cfg.slice), float(cfg.overlap), device)
         for method, dets in (("full-frame", ff), ("SAHI", sh)):
-            rec, prec = recall_precision(dets, gts, iou_thr)
+            boxes = [b for b, _ in dets]  # already filtered at cfg.conf by the detector
+            rec, prec = recall_precision(boxes, gts, iou_thr)
             rows.append({"model": model_name, "method": method, "recall": rec, "precision": prec})
             print(
                 f"[sahi] {model_name:11s} {method:11s}  "
                 f"recall {rec * 100:5.1f}%  precision {prec * 100:5.1f}%"
             )
     return {"rows": rows, "n_gt": n_gt, "n_img": len(paths), "conf": conf, "iou": iou_thr}
+
+
+def run_sweep(cfg) -> dict:
+    """Full-val recall/precision over a confidence sweep (one inference pass per config)."""
+    images_dir = REPO_ROOT / cfg.val_images
+    labels_dir = REPO_ROOT / cfg.val_labels
+    device = _pick_device()
+    paths = _sample(images_dir, dict(cfg.sample), full=bool(cfg.get("full_val", False)))
+    gts = [_load_gt(p, labels_dir) for p in paths]
+    n_gt = sum(len(g) for g in gts)
+    base_conf, imgsz = float(cfg.base_conf), int(cfg.imgsz)
+    iou_thr = float(cfg.iou_match)
+    thresholds = [float(t) for t in cfg.sweep_thresholds]
+    weights = {
+        "base": REPO_ROOT / cfg.base_weights,
+        "fine-tuned": REPO_ROOT / cfg.finetuned_weights,
+    }
+
+    curves: dict[str, list] = {}
+    for model_name, w in weights.items():
+        for method, fn in (
+            ("full-frame", lambda w=w: _fullframe(w, paths, base_conf, imgsz, device)),
+            (
+                "SAHI",
+                lambda w=w: _sahi(
+                    w, paths, base_conf, imgsz, int(cfg.slice), float(cfg.overlap), device
+                ),
+            ),
+        ):
+            dets = fn()  # one inference pass at base_conf, keep all boxes+scores
+            key = f"{model_name} · {method}"
+            pts = []
+            for thr in thresholds:
+                boxes = [filter_boxes(b, s, thr) for b, s in dets]
+                rec, prec = recall_precision(boxes, gts, iou_thr)
+                pts.append({"thr": thr, "recall": rec, "precision": prec})
+                print(
+                    f"[sweep] {key:24s} thr {thr:.2f}: recall {rec * 100:5.1f}%  "
+                    f"precision {prec * 100:5.1f}%"
+                )
+            curves[key] = pts
+    return {"curves": curves, "n_gt": n_gt, "n_img": len(paths), "iou": iou_thr}
+
+
+def plot_sweep(res: dict, out_path: Path) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    styles = {
+        "base · full-frame": ("#9AA7B4", "o", "-"),
+        "base · SAHI": ("#9AA7B4", "s", "--"),
+        "fine-tuned · full-frame": ("#0C3B6E", "o", "-"),
+        "fine-tuned · SAHI": ("#B85042", "s", "--"),
+    }
+    fig, ax = plt.subplots(figsize=(7.4, 5.2))
+    for key, pts in res["curves"].items():
+        c, mk, ls = styles.get(key, ("#888", "o", "-"))
+        rec = [p["recall"] * 100 for p in pts]
+        prec = [p["precision"] * 100 for p in pts]
+        ax.plot(rec, prec, marker=mk, ls=ls, color=c, lw=2, label=key)
+    ax.set_xlabel("recall (% of real survivors found)")
+    ax.set_ylabel("precision (%)")
+    ax.set_title(f"Recall–precision across a confidence sweep (full val, IoU {res['iou']})")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, loc="lower left")
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
 
 
 def plot_sahi(res: dict, out_path: Path) -> None:
@@ -194,11 +281,25 @@ def plot_sahi(res: dict, out_path: Path) -> None:
 
 def main() -> None:
     cfg = OmegaConf.load(REPO_ROOT / "configs/perception/sahi.yaml")
-    print(f"[sahi] operating point conf={cfg.conf} IoU={cfg.iou_match}")
-    res = run_sahi_eval(cfg)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = OUTPUT_ROOT / f"sahi_{ts}"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if bool(cfg.get("sweep", False)):
+        print(f"[sweep] full-val sweep, IoU={cfg.iou_match}, thr={list(cfg.sweep_thresholds)}")
+        res = run_sweep(cfg)
+        with open(out_dir / "sahi_sweep.csv", "w", newline="") as f:
+            wr = csv.writer(f)
+            wr.writerow(["config", "threshold", "recall", "precision"])
+            for key, pts in res["curves"].items():
+                for p in pts:
+                    wr.writerow([key, p["thr"], round(p["recall"], 4), round(p["precision"], 4)])
+        plot_sweep(res, out_dir / "sahi_sweep.png")
+        print(f"[sweep] {res['n_img']} imgs, {res['n_gt']} GT -> {out_dir.name}/sahi_sweep.png")
+        return
+
+    print(f"[sahi] operating point conf={cfg.conf} IoU={cfg.iou_match}")
+    res = run_sahi_eval(cfg)
     with open(out_dir / "sahi.csv", "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=["model", "method", "recall", "precision"])
         wr.writeheader()

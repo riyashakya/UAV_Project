@@ -3,7 +3,19 @@
 from __future__ import annotations
 
 import numpy as np
-from src.perception.sahi_eval import iou, recall_precision
+from src.perception.sahi_eval import filter_boxes, iou, recall_precision
+
+
+def test_filter_boxes_by_confidence():
+    boxes = np.array([[0.0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]])
+    scores = np.array([0.05, 0.4, 0.9])
+    kept = filter_boxes(boxes, scores, 0.3)  # drop the 0.05 box
+    assert len(kept) == 2
+    assert np.array_equal(kept, boxes[1:])
+
+
+def test_filter_boxes_empty():
+    assert len(filter_boxes(np.zeros((0, 4)), np.zeros(0), 0.5)) == 0
 
 
 def test_iou_identical_box_is_one():

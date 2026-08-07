@@ -11,6 +11,29 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-08 (2) — Full-val SAHI PR sweep: the definitive answer (2nd self-correction)
+
+- **Request:** run the full recall/precision confidence sweep to lock the SAHI numbers.
+- **Built:** extended `sahi_eval.py` with a sweep mode (one low-conf inference pass per config, then
+  thresholds applied post-hoc via a tested `filter_boxes`), `full_val`, PR-curve plot. `make sahi-recall`
+  now runs the sweep. 122 tests green.
+- **Result (944 imgs, 32,286 GT boxes, IoU 0.5, thr 0.1–0.6) — corrects LAST turn's over-positive read:**
+  the precision–recall frontier shows **fine-tuned SAHI ≈ fine-tuned full-frame** (curves overlap; full-
+  frame marginally ahead mid-precision; SAHI reaches only ~+1 pt max recall, 74.5 vs 73.5, at lower
+  precision). So **SAHI does NOT beat full-frame** on this data. Last turn's "+5.5 recall" was an artefact
+  of comparing at a single fixed conf (0.25) — unfair across methods with different calibration.
+- **What DOES hold:** the fine-tune clearly rescues the *tiled* config — fine-tuned SAHI dominates base
+  SAHI across the whole frontier. And the images are already downscaled (median object 40px), not SAHI's
+  tiny-object regime — so tiling has little to recover.
+- **The real story (3 stages, now the strongest methodological lesson in the project):** AP@0.001 said
+  SAHI terrible; recall@0.25 (100 imgs) said SAHI clearly better; the full PR frontier says tied. All three
+  from one experiment. **Judge on the frontier, not one number.** Report §4.1 rewritten to this; abstract/
+  §1.6/§1.4a/§5.4 reconciled. Prose 14.7k.
+- **Note:** I over-corrected last turn (over-positive). This turn fixes it with the rigorous full sweep.
+- **Status:** done. RQ3 closed honestly: on this data tiled ≈ full-frame; fine-tune rescues tiling to parity.
+
+---
+
 ## 2026-08-08 — SAHI investigation: the negative was a metric artefact (self-correction)
 
 - **Request:** dig into the SAHI config to see if tiled inference can be made to help.
