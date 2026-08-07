@@ -77,6 +77,9 @@ relook:  ## Re-look vs cover-more: can coordination claw back the detection bott
 lighting-robustness:  ## Detector mAP under bright/normal/dark val images -> outputs/runs/lighting_*/
 	$(UV) run python -m src.perception.lighting_eval
 
+sahi-recall:  ## SAHI vs full-frame recall/precision at a realistic threshold -> outputs/runs/sahi_*/
+	$(UV) run python -m src.perception.sahi_eval
+
 federated-train:  ## Federated detector training (FedAvg/FedProx, non-IID by source). Needs: uv sync --extra federated
 	$(UV) run python -m src.perception.federated.fed_train
 

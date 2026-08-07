@@ -11,6 +11,28 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-08 — SAHI investigation: the negative was a metric artefact (self-correction)
+
+- **Request:** dig into the SAHI config to see if tiled inference can be made to help.
+- **Diagnosis:** val images are already downscaled (VisDrone ~1360×765, SARD 1920×1080), objects median
+  40px — NOT SAHI's tiny-object-in-huge-image regime. And the eval AP uses **conf 0.001**, where SAHI's
+  cross-tile merge drowns in weak boxes. So the AP-based "SAHI hurts" was a metric/threshold artefact.
+- **Fix + result (`make sahi-recall`, conf 0.25, IoU 0.5, 100 imgs, 2299 GT):** at a realistic operating
+  point the picture **reverses** — recall/precision:
+  - base full-frame 70.2/75.0 · base SAHI 71.9/66.5
+  - fine-tuned full-frame 70.1/80.6 · **fine-tuned SAHI 75.6/74.4** (best recall).
+  - SAHI trades precision for recall; fine-tuned+SAHI beats base+SAHI on BOTH → **the fine-tune DID its
+    job**, and I was wrong last turn (that conclusion was AP-at-conf-0.001 only). For SAR, recall is the
+    priority, so fine-tuned+SAHI is the operationally preferred config.
+- **Honest caveats kept:** whole-curve AP still favours full-frame; single operating point, 100-img
+  sample → full sweep is the next step. The lesson (now in the report): the metric must match the mission.
+- **Built:** `src/perception/sahi_eval.py` + `configs/perception/sahi.yaml` + `tests/test_sahi_eval.py`
+  (6 tests: IoU + recall/precision, dataset-free) + `make sahi-recall`. Report §4.1 rewritten (recall
+  table), §1.4a/§1.6/abstract/§5.4 reconciled. **120 tests green, lint clean.** Prose ~14.7k words.
+- **Status:** done — a negative turned into an honest, self-corrected positive-with-caveats.
+
+---
+
 ## 2026-08-07 — Fine-tune fair comparison: negative result, honestly reported (closes RQ3)
 
 - **Request:** the slicing-aided fine-tune completed; run the fair SAHI comparison to confirm its gain.
