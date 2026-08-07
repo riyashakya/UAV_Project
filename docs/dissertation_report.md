@@ -681,16 +681,12 @@ translation, random erasing, and HSV colour jitter — the last including a valu
 flipping, rotation, shear and mix-up were off. Test-time augmentation was not used. Because the pinned
 values equal the defaults that were actually applied, documenting them required no retraining.
 
-Tiled inference was evaluated as a candidate improvement, at 640-pixel slices with a 0.2 overlap ratio
-so that objects on slice boundaries appear whole in at least one tile. The result was negative and is
-reported as such: because the detector was trained on whole downscaled frames rather than on tiles, at
-inference the tiled objects appear at a scale the detector never saw, and accuracy fell rather than
-rose. To address this scale mismatch, a slicing-aided fine-tuning pipeline was built. A script slices
-the detect set into 640-pixel tiles, keeping the original frames as well so the detector still sees
-whole-image context, and a fine-tune configuration continues training from the existing checkpoint on
-the sliced set so that the detector learns objects at slice scale. This fine-tuning was set up to run on
-the author's machine; its outcome, if completed, would update Section 4.1, and the pipeline is included
-so that the negative finding comes with a concrete remedy rather than an excuse.
+Tiled inference (SAHI, 640-pixel slices, 0.2 overlap) was evaluated as a candidate improvement, and the
+result was negative: because the detector was trained on whole downscaled frames rather than tiles, the
+tiled objects appear at a scale it never saw and accuracy fell. To address this, a slicing-aided fine-tune
+was built — a script slices the detect set into 640-pixel tiles (keeping the whole frames too), and
+training continues from the existing checkpoint on the sliced set so the detector learns objects at slice
+scale. Its measured outcome is reported in Section 4.1.
 
 ## 3.4 Coordination: Partitioning, Coverage and Auction Reallocation
 
@@ -870,23 +866,33 @@ than on the generic urban UAV imagery, roughly 0.88 against 0.65 at 0.5 IoU. Bec
 labels survivors, the person class is trained on this non-disaster imagery and transferred, and that
 difference is the transfer cost the application pays.
 
-Tiled inference reduced accuracy rather than improving it, which is a train/inference scale mismatch: the
-detector saw whole downscaled frames in training but 640-pixel slices at inference, so the objects
-appeared at a scale it had not learned. This negative result is reported rather than buried, and it
-motivated the slicing-aided fine-tuning pipeline described in Section 3.3. At the time of writing that
-fine-tuning was still running, so its outcome is not included; when it completes, the expected effect is a
-recovery of small-object accuracy under tiled inference, and this section will be updated with the
-measured numbers rather than the expectation.
+Tiled inference reduced accuracy rather than improving it — a train/inference scale mismatch (whole frames
+in training, 640-pixel slices at inference). This motivated the slicing-aided fine-tune of Section 3.3, on
+the hypothesis that tiled inference would then help. **That hypothesis was not confirmed.** On a fair,
+same-test comparison (both models on the whole-image val set, full-frame and SAHI, size-stratified):
+
+| Model · inference | mAP@50 | AP (small) | SAHI vs full-frame (small) |
+|---|---|---|---|
+| base · full-frame | 0.665 | 0.258 | — |
+| base · SAHI | 0.347 | 0.111 | −0.147 |
+| fine-tuned · full-frame | 0.668 | 0.255 | — |
+| fine-tuned · SAHI | 0.385 | 0.116 | −0.139 |
+
+On the fair whole-image test the fine-tuned model **matches the base** (mAP@50 0.668 vs 0.665; small-object
+AP 0.255 vs 0.258), so the higher figure on the *sliced* set was an easier-evaluation artefact, not a real
+gain — the caveat flagged when that number first appeared. And **tiled inference still hurts** both models
+by about 14 small-object AP points, so fine-tuning on tiles did not rescue it; the fine-tuned model is only
+less-bad *under SAHI*, which is moot since full-frame beats SAHI for both. The original negative finding stands, small-object AP remains about 0.26,
+and full-frame inference is the right choice — a deflating but honestly reported outcome. The SAHI
+configuration itself (Section 5.4) is the likely culprit and the thing to fix next.
 
 A separate robustness check (`make lighting-robustness`) re-scores the detector on the same validation
-subset re-rendered at several brightness levels, to test whether the brightness augmentation actually
-buys day-and-night robustness. It does. Against a normal-light baseline of 68.0% mAP@50 on a
-representative 300-image sample (consistent with the whole-dataset figure), darkening the images by half
-cost only 2.1 points (65.9%) and moderate brightening 1.4 points (66.6%); the detector held up well
-across ordinary lighting. The one real weakness was over-exposure: a 1.8× glare cost 5.1 points (62.9%),
-the largest drop, because saturated highlights wash out the small objects the detector already struggles
-with. The practical reading is that the augmentation gives usable low-light robustness but that glare, not
-darkness, is the lighting condition to worry about.
+subset re-rendered at several brightness levels, to test whether the brightness augmentation buys
+day-and-night robustness. It does. Against a normal-light baseline of 68.0% mAP@50 (a representative
+300-image sample, consistent with the whole-dataset figure), halving the brightness cost only 2.1 points
+and moderate brightening 1.4; the one real weakness was over-exposure, where a 1.8× glare cost 5.1 points,
+as saturated highlights wash out the small objects. So the augmentation gives usable low-light robustness,
+and glare, not darkness, is the condition to worry about.
 
 | Lighting (brightness ×) | mAP@50 | Change vs normal |
 |---|---|---|
@@ -1239,12 +1245,13 @@ evaluation and the decoupled methodology, and the report is written to keep that
 
 ## 5.4 Future Work
 
-Several directions would strengthen the work, ordered here roughly by how directly they follow from what
-exists. The most immediate is the perception fine-tuning already set up: completing it should turn the
-negative tiled-inference finding into a measured small-object improvement and close the loop on RQ3. Beyond
-that, grounding more of the coordination experiments on real georeferenced data — ideally a dataset that
-carries real GPS locations rather than the synthetic anchoring used here — would reduce the dependence on
-constructed scenarios that is the study's main internal-validity limitation.
+Several directions would strengthen the work. The slicing-aided fine-tune has now been run and did not
+rescue tiled inference (Section 4.1), which points at the SAHI configuration itself — the low confidence
+threshold and degenerate tile-edge boxes — as the thing to fix before tiled inference can help; that, and
+better small-object training data, are the routes to lifting the 0.26 small-object AP. Grounding more of the
+coordination experiments on real georeferenced data — ideally with real GPS locations rather than the
+synthetic anchoring used here — would reduce the dependence on constructed scenarios that is the study's
+main internal-validity limitation.
 
 The vision-estimated current prototyped in Section 4.4a should next be run on real flood footage and
 compared against the external current forecasts operational tools use. Replacing the greedy auction with a

@@ -11,6 +11,27 @@ detailed technical log), [`adr/`](adr/) (architecture decisions).
 
 ---
 
+## 2026-08-07 — Fine-tune fair comparison: negative result, honestly reported (closes RQ3)
+
+- **Request:** the slicing-aided fine-tune completed; run the fair SAHI comparison to confirm its gain.
+- **Method:** ran `src.perception.eval` on BOTH the base (whole-image-trained) and fine-tuned
+  (tile-trained) checkpoints, same 944-image whole-image val set, full-frame + SAHI, size-stratified.
+- **Result — the hoped-for gain did NOT materialise (honest negative):**
+  - full-frame: fine-tuned ≈ base (mAP@50 **0.668 vs 0.665**, small-object AP **0.255 vs 0.258**). So the
+    0.78 seen on the *sliced* val earlier was an easier-eval-set artefact, exactly as I had cautioned —
+    NOT a real gain.
+  - SAHI still hurts both (small-object AP delta **base −0.147, fine-tuned −0.139**). Fine-tuning on tiles
+    did NOT rescue tiled inference. Full-frame remains best; small-object AP stays ~0.26.
+  - Only benefit: fine-tuned is modestly less-bad *under SAHI* (SAHI mAP@50 0.385 vs 0.347) — moot, since
+    full-frame beats SAHI anyway.
+- **Interpretation:** the SAHI negative finding STANDS. Likely SAHI-config issue (conf 0.001 floods tiles;
+  degenerate tile-edge boxes in the logs) — flagged as future work, not a fine-tune failure alone.
+- **Report:** §4.1 updated with the fair table + honest reading; §5.4 future-work corrected (removed the
+  prediction that the fine-tune would improve small objects). No code change — analysis only.
+- **Status:** done. RQ3 closed with a negative, honestly reported result.
+
+---
+
 ## 2026-08-06 — Re-look experiment: can coordination claw back the perception bottleneck?
 
 - **Request:** build the re-look experiment (extend the §4.5 bottleneck finding). Also: user
